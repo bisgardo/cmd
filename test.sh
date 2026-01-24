@@ -3,28 +3,44 @@ function cmd {
 }
 
 function test_can_run {
-  local out=$(cmd 2>&1)
+  local out # must declare 'local' before assignment for exit code to propagate...
+  out=$(cmd 2>&1)
   assertContains "$out" "cmd is a tool"
 }
 
 function test_can_run_hello {
   # Runs 'root1/hello.cmd'.
-  local out=$(cmd hello)
+  local out
+  out=$(cmd hello)
   assertEquals "Hello, world!" "$out"
 }
 
 function test_can_run_nested_hello {
   # Runs 'root1/hello.cmd'.
-  local out1=$(cmd nested/hello)
-  assertEquals "Hello, nested world!" "$out1"
-  local out2=$(cmd nested hello)
-  assertNull "$out2"
+  local out
+  out=$(cmd nested/hello)
+  assertEquals "Hello, nested world!" "$out"
+  out=$(cmd nested hello 2>&1)
+  assertEquals "cmd: command \"nested\" not found" "$out"
 }
 
 function test_can_run_echo {
   # Runs 'root2/echo.cmd'.
-  local out=$(cmd echo hello echo)
+  local out
+  out=$(cmd echo hello echo)
   assertEquals "hello echo" "$out"
+}
+
+function test_cannot_run_nonexistent {
+  cmd nonexistent
+  assertEquals 1 $?
+}
+
+function test_cannot_run_ambiguous {
+  local out
+  out=$(CMD_ROOTS=testdata/root1:testdata/root1/nested ./cmd hello 2>&1)
+  assertEquals 2 $?
+  assertEquals "cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)" "$out"
 }
 
 # ---
