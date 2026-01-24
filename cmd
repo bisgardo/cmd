@@ -7,7 +7,18 @@ _cmd_name="$(basename "$0")"
 # UTILITIES #
 
 function cmd_log {
+  # args: strings_to_log
 	>&2 echo "$@"
+}
+
+function cmd_quote {
+  # args: strings_to_quote
+	local p=
+	for v in "$@"; do
+		printf "$p%q" "$v"
+		p=' '
+	done
+	echo
 }
 
 function cmd_split {
@@ -47,7 +58,8 @@ function _cmd_echo_root_run_script {
     local cmd_path="$root/$path_from_root$CMD_SUFFIX"
     if [ -e "$cmd_path" ]; then
       # Outputs script of the form `root=... script=root/p1/p2.cmd $func [args]`.
-      echo "root=$root script=$cmd_path" \$func "$@"
+      # TODO: What if cmd_args contain quotes??
+      echo "root=$(cmd_quote "$root") script=$(cmd_quote "$cmd_path")" \$func "$@"
     fi
   fi
 }
@@ -68,7 +80,7 @@ function _cmd_resolve_unique_run_script {
   # input: sequence of roots (consumed by '_cmd_echo_run_scripts').
   local run_scripts=()
   local r
-  while read r; do run_scripts+=("$r"); done <<< "$(_cmd_echo_run_scripts "$@")"
+  while read -r r; do run_scripts+=("$r"); done <<< "$(_cmd_echo_run_scripts "$@")"
 	if [ -z "$run_scripts" ]; then
 		cmd_log "$_cmd_name: command \"$1\" not found"
 		return 1
