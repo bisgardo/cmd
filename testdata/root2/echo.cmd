@@ -1,2 +1,2 @@
-# Reports args right back at ya.
+# Tosses args right back at ya.
 echo "$@"

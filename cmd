@@ -4,6 +4,10 @@ set -euo pipefail
 
 # UTILITIES #
 
+function cmd_log {
+	>&2 echo "$@"
+}
+
 function cmd_split {
   # args: delim
   # input: string_to_split
@@ -20,25 +24,16 @@ function cmd_split {
 CMD_SUFFIX=.cmd
 
 function _cmd_make_run_script_by_root {
-  # args: root [path...] [args...]
+  # args: root path [args...]
   local root="$1"
-  shift
-  local dir="$root"
-  for part in "$@"; do
-    if ! [ -d "$dir" ]; then
-      break
-    fi
-    # Ensure that all components in the path to the cmd are excluded from the final args.
-    # This doesn't affect iteration.
-    shift
-    local cmd_file="$dir/$part$CMD_SUFFIX"
-    if [ -e "$cmd_file" ]; then
-      # Output script like `root=... root/p1/p2.cmd [args]`.
-      echo "root=$root $cmd_file" "$@"
-      return
-    fi
-    dir="$dir/$part"
-  done
+  local path_from_root="$2"
+  shift 2
+
+  local cmd_path="$root/$path_from_root$CMD_SUFFIX"
+  if [ -e "$cmd_path" ]; then
+    # Outputs script like `root=... root/p1/p2.cmd [args]`.
+    echo "root=$root $cmd_path" "$@"
+  fi
 }
 
 # RUN
@@ -50,4 +45,10 @@ function _cmd_resolve_run_scripts {
     done
 }
 
-eval "$(_cmd_resolve_run_scripts "$@")"
+if [ "$#" -eq 0 ]; then
+  cmd_log "cmd is a tool for finding and running commands."
+  cmd_log "Usage: cmd <command> [args]"
+  cmd_log "Searches for <command>.cmd within a set of root specified by env var CMD_ROOTS and runs it."
+else
+  eval "$(_cmd_resolve_run_scripts "$@")"
+fi

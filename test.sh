@@ -2,6 +2,11 @@ function cmd {
   CMD_ROOTS=testdata/root1:testdata/root2 ./cmd "$@"
 }
 
+function test_can_run {
+  local out=$(cmd 2>&1)
+  assertContains "$out" "cmd is a tool"
+}
+
 function test_can_run_hello {
   # Runs 'root1/hello.cmd'.
   local out=$(cmd hello)
@@ -13,7 +18,7 @@ function test_can_run_nested_hello {
   local out1=$(cmd nested/hello)
   assertEquals "Hello, nested world!" "$out1"
   local out2=$(cmd nested hello)
-  assertEquals "Hello, nested world!" "$out2"
+  assertNull "$out2"
 }
 
 function test_can_run_echo {
