@@ -116,7 +116,7 @@ function cmd_eval {
   function __eval {
     # args: cmd_args...
     # scope: cmd_root, cmd_script, ...
-    cmd_log "# [$cmd_script]"
+    if [ "${cmd_script-}" ]; then cmd_log "# [$cmd_script]"; fi
     cmd_log "> $eval_expr"
     # Eval user-provided expression. Everything in scope is inherited, including args (available as "$@").
     local x=0; eval "$eval_expr" || x=$?
@@ -127,9 +127,18 @@ function cmd_eval {
   }
   local eval_expr="$1"
   shift
-  local run_script # must declare local first as it otherwise eats the called function's return value
-  run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
-  func=__eval eval "$run_script"
+#  cmd_log "\$#=$# \$1=$1 eval_expr=$eval_expr"
+  if [ "$#" -eq 0 ]; then
+    __eval
+  elif [ "$1" = '--' ]; then
+    # Allow passing argument to eval expr by starting with '--'.
+    shift
+    __eval "$@"
+  else
+    local run_script # must declare local first as it otherwise eats the called function's return value
+    run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
+    func=__eval eval "$run_script"
+  fi
   unset __eval
 }
 

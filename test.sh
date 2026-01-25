@@ -107,6 +107,18 @@ function test_cannot_eval_ambiguous {
   assertEquals "cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)" "$out"
 }
 
+function test_eval_empty {
+  # Run "eval" outside the context of a command.
+  # Use case: access internal utility without having to create a .cmd file.
+  local out
+  out=$(cmd --eval 'cmd_split ,' <<< "a,b,c" 2>&1)
+  assertEquals 0 $?
+  assertEquals $'> cmd_split ,\na\nb\nc' "$out"
+  out=$(cmd --eval 'echo "$@"' -- x y z 2>&1)
+  assertEquals 0 $?
+  assertEquals $'> echo "$@"\nx y z' "$out"
+}
+
 function test_stdin {
   # Runs command both using script and eval with stdin passed from cmd.
   local out
