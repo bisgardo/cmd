@@ -82,6 +82,13 @@ function test_eval_quoted {
   assertEquals 'x"y' "$out"
 }
 
+function test_eval_quoted_unmatched {
+  local out
+  out=$(cmd --eval ec\'ho hello 2>&1)
+  assertEquals 2 $? # exit code from bash: "incorrect use of builtin"
+  assertContains "$out" "unexpected EOF while looking for matching \`'"
+}
+
 function test_stdin {
   local out
   out=$((echo the quick; echo lazy dog) | cmd wc 2>&1)
