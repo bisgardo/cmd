@@ -1,9 +1,12 @@
-.PHONY: test fetch-shunit2 test-bash3 test-bash4 test-bash5
+.PHONY: test fetch-shunit2 test-local test-bash3 test-bash4 test-bash5
 
-test: test-bash3 test-bash4 test-bash5
+test: test-local test-bash3 test-bash4 test-bash5
 
 fetch-shunit2:
 	wget https://raw.githubusercontent.com/kward/shunit2/refs/tags/v2.1.8/shunit2 -O ./lib/shunit2
+
+test-local:
+	@bash ./test.sh -- $(TEST)
 
 test-bash3: # Hardcoding Bash v3.2.57 specifically because that's the version that Macs are stuck on.
 	@docker run --volume="$(CURDIR):/tmp" --workdir="/tmp" bash:3.2.57 ./test.sh -- $(TEST)

@@ -105,16 +105,17 @@ function test_cannot_eval_ambiguous {
 }
 
 function test_stdin {
+  # Runs command both using script and eval with stdin passed from cmd.
   local out
   out=$((echo the quick; echo lazy dog) | cmd wc 2>&1)
   assertEquals 0 $?
-  assertEquals "        2         4        19" "$out"
+  assertEquals "2 4 19" "$(echo $out)" # let unquoted echo collapse whitespace to eliminate platform differences of `wc`
   out=$((echo the quick; echo lazy dog) | cmd --eval wc hello 2>/dev/null)
   assertEquals 0 $?
-  assertEquals "        2         4        19" "$out"
+  assertEquals "2 4 19" "$(echo $out)"
   out=$((echo the quick; echo lazy dog) | cmd --eval=wc hello 2>/dev/null)
   assertEquals 0 $?
-  assertEquals "        2         4        19" "$out"
+  assertEquals "2 4 19" "$(echo $out)"
 }
 
 # ---

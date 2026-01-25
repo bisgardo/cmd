@@ -49,4 +49,15 @@ Create a symbolic link from a dir that is already on `PATH`, to the directory `<
 Unit tests are written using [shunit2](https://github.com/kward/shunit2) and are run directly using `./test.sh`,
 which also contains the test cases.
 
-The Makefile target `test` runs the tests against the latest versions of Bash version 3, 4, and 5, respectively (using Docker).
+The Makefile target `test` runs the tests locally
+as well as against the latest versions of Bash version 3, 4, and 5, respectively (using Docker).
+
+The Makefile variable `TEST` may be used to target a specific test (or space-separated list of tests).
+For example, the command
+```shell
+make test TEST='test1 test2'
+```
+runs the tests named `test1` and `test2` locally and against all environments.
+
+To run against only the Bash 3, for example, use target `test-bash3` instead of `test`.
+Make also supports running an arbitrary list of targets if for some reason one wants to test against a subset of environments.
