@@ -60,9 +60,19 @@ function test_can_handle_quotes {
 
 function test_eval_env {
   local out
-  out=$(cmd --eval 'echo cmd_root=$cmd_root cmd_script=$cmd_script' hello)
+  out=$(cmd --eval 'echo cmd_root=$cmd_root cmd_script=$cmd_script' hello 2>/dev/null)
   assertEquals 0 $?
   assertEquals "cmd_root=testdata/root1 cmd_script=testdata/root1/hello.cmd" "$out"
+}
+
+function test_stdin {
+  local out
+  out=$((echo the quick; echo lazy dog) | cmd wc 2>&1)
+  assertEquals 0 $?
+  assertEquals "        2         4        19" "$out"
+  out=$((echo the quick; echo lazy dog) | cmd --eval wc hello 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals "        2         4        19" "$out"
 }
 
 # ---
