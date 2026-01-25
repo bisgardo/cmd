@@ -90,6 +90,13 @@ function test_eval_quoted_unmatched {
   assertContains "$out" "eval expression failed with exit code"
 }
 
+function test_eval_return {
+  local out
+  out=$(cmd --eval 'return 42' hello 2>/dev/null)
+  assertEquals 42 $?
+  assertNull "$out" # prints nothing except stdout
+}
+
 function test_stdin {
   local out
   out=$((echo the quick; echo lazy dog) | cmd wc 2>&1)
