@@ -57,8 +57,8 @@ function _cmd_echo_root_run_script {
   if shift 2; then
     local cmd_path="$root/$path_from_root$CMD_SUFFIX"
     if [ -e "$cmd_path" ]; then
-      # Outputs script of the form `root=... script=root/p1/p2.cmd $func [args]`.
-      echo "root=$(cmd_quote "$root") script=$(cmd_quote "$cmd_path")" \$func "$(cmd_quote "$@")"
+      # Outputs script of the form `cmd_root=... cmd_script=root/p1/p2.cmd $func [args]`.
+      echo "cmd_root=$(cmd_quote "$root") cmd_script=$(cmd_quote "$cmd_path")" \$func "$(cmd_quote "$@")"
     fi
   fi
 }
@@ -86,8 +86,8 @@ function _cmd_resolve_unique_run_script {
 	fi
 	if [ "${#run_scripts[@]}" -gt 1 ]; then
 	  function __echo_script {
-	    # scope: root, script
-	    echo $script
+	    # scope: cmd_root, cmd_script
+	    echo $cmd_script
 	  }
 	  local scripts_joined=$(for r in "${run_scripts[@]}"; do func=__echo_script eval "$r"; done | cmd_join ', ')
 	  unset __echo_script
@@ -99,21 +99,45 @@ function _cmd_resolve_unique_run_script {
 
 function cmd_run {
   # args: path_from_root, cmd_args...
-  local run_script # must declare local first as it otherwise eats the called function's return value
-  run_script=$(_cmd_resolve_unique_run_script "$@" <<< "$CMD_ROOTS")
   function __source_script {
     # args: cmd_args...
-    # scope: root, script
-    source "$script" "$@"
+    # scope: cmd_root, cmd_script, ...
+    source "$cmd_script" "$@" # inherits everything in scope
   }
+  local run_script # must declare local first as it otherwise eats the called function's return value
+  run_script=$(_cmd_resolve_unique_run_script "$@" <<< "$CMD_ROOTS")
   func=__source_script eval "$run_script"
   unset __source_script
+}
+
+function cmd_eval {
+  # args: eval_expr, path_from_root, cmd_args...
+  function __eval {
+    # args: cmd_args...
+    # scope: cmd_root, cmd_script, ...
+    cmd_log "# [$cmd_script]"
+    cmd_log "> $eval_expr"
+    eval "$eval_expr" # inherits everything in scope
+  }
+  local eval_expr="$1"
+  shift
+  # For eval, we don't require match to be unique; evaluate eval_expr on all matches.
+  for r in "$(_cmd_resolve_unique_run_script "$@" <<< "$CMD_ROOTS")"; do
+    func=__eval eval "$r"
+  done
+  unset __eval
 }
 
 if [ "$#" -eq 0 ]; then
   cmd_log "cmd is a tool for finding and running commands."
   cmd_log "Usage: cmd <command> [args]"
   cmd_log "Runs <root>/<command>.cmd, where <root> is a member of the set configured in env var CMD_ROOTS as ':'-separated paths."
+  exit 1
+fi
+if [ "$1" = "--eval" ]; then
+  shift
+  # Instead of evaluating the resolved script (cmd_script), evaluate the provided expression.
+  cmd_eval "$@"
 else
   cmd_run "$@"
 fi

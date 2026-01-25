@@ -5,7 +5,7 @@ function cmd {
 function test_can_run {
   local out # must declare 'local' before assignment for exit code to propagate...
   out=$(cmd 2>&1)
-  assertEquals 0 $?
+  assertEquals 1 $?
   assertContains "$out" "cmd is a tool"
 }
 
@@ -56,6 +56,13 @@ function test_can_handle_quotes {
   out=$(CMD_ROOTS="testdata/'" ./cmd '"' "Guns N' Roses" 'Terry "Geezer" Butler' 2>&1)
   assertEquals 0 $?
   assertEquals "I'm quoting Guns N' Roses, Terry \"Geezer\" Butler!" "$out"
+}
+
+function test_eval_env {
+  local out
+  out=$(cmd --eval 'echo cmd_root=$cmd_root cmd_script=$cmd_script' hello)
+  assertEquals 0 $?
+  assertEquals "cmd_root=testdata/root1 cmd_script=testdata/root1/hello.cmd" "$out"
 }
 
 # ---
