@@ -91,6 +91,9 @@ function test_eval_quoted_unmatched {
 }
 
 function test_eval_return {
+  # Return from eval propagates immediately, bypassing custom error reporting.
+  # Whether this is desired isn't clear, but it's observable behavior, so we might as well test that the behavior is consistent across the different environments.
+  # ...and know if we break it later.
   local out
   out=$(cmd --eval 'return 42' hello 2>/dev/null)
   assertEquals 42 $?

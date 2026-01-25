@@ -59,7 +59,7 @@ function _cmd_echo_root_run_script {
     local cmd_path="$root/$path_from_root$CMD_SUFFIX"
     if [ -e "$cmd_path" ]; then
       # Outputs script of the form `cmd_root=... cmd_script=root/p1/p2.cmd $func [args]`.
-      echo "cmd_root=$(cmd_quote "$root") cmd_script=$(cmd_quote "$cmd_path")" \$func "$(cmd_quote "$@")"
+      echo "cmd_root=$(cmd_quote "$root") cmd_script=$(cmd_quote "$cmd_path") \$func $(cmd_quote "$@")"
     fi
   fi
 }
@@ -119,8 +119,7 @@ function cmd_eval {
     cmd_log "# [$cmd_script]"
     cmd_log "> $eval_expr"
     # Eval user-provided expression. Everything in scope is inherited, including args (available as "$@").
-    local x=0
-    eval "$eval_expr" || x=$?
+    local x=0; eval "$eval_expr" || x=$?
     if [ "$x" -ne 0 ]; then
       cmd_log "$_cmd_name: eval expression failed with exit code $x"
       return 4
