@@ -3,7 +3,7 @@
 set -euo pipefail
 
 CMD_ROOTS="${CMD_ROOTS-.}"
-cmd_command="$0"
+cmd_command="$(basename $0)"
 
 # UTILITIES #
 
@@ -170,7 +170,7 @@ function cmd_run {
 
 if [ "$#" -eq 0 ]; then
   cmd_log "cmd is a tool for finding and running commands."
-  cmd_log "Usage: cmd <command> [args]"
+  cmd_log "Usage: $cmd_command <command> [args]"
   cmd_log "Runs <root>/<command>.cmd, where <root> is a member of the set configured in env var CMD_ROOTS as ':'-separated paths."
   exit 1
 fi

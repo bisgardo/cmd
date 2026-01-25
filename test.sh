@@ -25,7 +25,7 @@ function test_can_run_nested_hello {
   assertEquals 'Hello, nested world!' "$out"
   out=$(cmd nested hello 2>&1)
   assertEquals 1 $?
-  assertEquals './cmd: command "nested" not found' "$out"
+  assertEquals 'cmd: command "nested" not found' "$out"
 }
 
 function test_can_run_echo {
@@ -40,14 +40,14 @@ function test_cannot_run_nonexistent {
   local out
   out=$(cmd nonexistent 2>&1)
   assertEquals 1 $?
-  assertEquals './cmd: command "nonexistent" not found' "$out"
+  assertEquals 'cmd: command "nonexistent" not found' "$out"
 }
 
 function test_cannot_run_ambiguous {
   local out
   out=$(CMD_ROOTS=testdata/root1:testdata/root1/nested ./cmd hello 2>&1)
   assertEquals 2 $?
-  assertEquals './cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)' "$out"
+  assertEquals 'cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)' "$out"
 }
 
 function test_can_handle_quotes {
@@ -108,7 +108,7 @@ function test_cannot_eval_ambiguous {
   local out
   out=$(CMD_ROOTS=testdata/root1:testdata/root1/nested ./cmd --eval 'echo goodbye' hello 2>&1)
   assertEquals 2 $?
-  assertEquals './cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)' "$out"
+  assertEquals 'cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)' "$out"
 }
 
 function test_eval_empty {
