@@ -119,7 +119,12 @@ function cmd_eval {
     cmd_log "# [$cmd_script]"
     cmd_log "> $eval_expr"
     # Eval user-provided expression. Everything in scope is inherited, including args (available as "$@").
-    eval "$eval_expr"
+    local x=0
+    eval "$eval_expr" || x=$?
+    if [ "$x" -ne 0 ]; then
+      cmd_log "$_cmd_name: eval expression failed with exit code $x"
+      return 4
+    fi
   }
   local eval_expr="$1"
   shift
