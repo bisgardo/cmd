@@ -139,16 +139,19 @@ function cmd_eval {
 
 function cmd_eval_logged {
   # args: eval_expr, path_from_root, cmd_args...
-  function __cmd_log_script {
+  function __cmd_eval_log {
+    # args: eval_expr
     # scope: cmd_script, ...
+    local eval_expr="$1"
     if [ "${cmd_script-}" ]; then
       cmd_log "# [$cmd_script]"
     fi
+    cmd_log "> $eval_expr"
   }
   local eval_expr="$1"
   shift
-  cmd_eval "__cmd_log_script && cmd_log '> '$(cmd_escape "$eval_expr") && $eval_expr" "$@"
-  unset __cmd_log_and_eval
+  cmd_eval "__cmd_eval_log $(cmd_escape "$eval_expr") && $eval_expr" "$@"
+  unset __cmd_eval_log
 }
 
 function cmd_list {
