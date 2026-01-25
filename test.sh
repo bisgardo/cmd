@@ -72,6 +72,16 @@ function test_eval_echo_args {
   assertEquals "a b c" "$out"
 }
 
+function test_eval_quoted {
+  local out
+  out=$(cmd --eval "echo 'x\"y'" hello 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'x"y' "$out"
+  out=$(cmd --eval="echo 'x\"y'" hello 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'x"y' "$out"
+}
+
 function test_stdin {
   local out
   out=$((echo the quick; echo lazy dog) | cmd wc 2>&1)
