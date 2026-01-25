@@ -51,10 +51,11 @@ function test_cannot_run_ambiguous {
 }
 
 function test_can_handle_quotes {
-  # Runs `'/".cmd` - insane, but won't crash even on shit like this!
-  out=$(CMD_ROOTS="testdata/'" ./cmd '"' 2>&1)
+  # Runs `'/".cmd` with some args that also contain quotes - insane, but we won't even let shit like this crash us!
+  local out
+  out=$(CMD_ROOTS="testdata/'" ./cmd '"' "Guns N' Roses" 'Terry "Geezer" Butler' 2>&1)
   assertEquals 0 $?
-  assertEquals "I'm quoting!" "$out"
+  assertEquals "I'm quoting Guns N' Roses, Terry \"Geezer\" Butler!" "$out"
 }
 
 # ---

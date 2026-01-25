@@ -58,8 +58,7 @@ function _cmd_echo_root_run_script {
     local cmd_path="$root/$path_from_root$CMD_SUFFIX"
     if [ -e "$cmd_path" ]; then
       # Outputs script of the form `root=... script=root/p1/p2.cmd $func [args]`.
-      # TODO: What if cmd_args contain quotes??
-      echo "root=$(cmd_quote "$root") script=$(cmd_quote "$cmd_path")" \$func "$@"
+      echo "root=$(cmd_quote "$root") script=$(cmd_quote "$cmd_path")" \$func "$(cmd_quote "$@")"
     fi
   fi
 }
