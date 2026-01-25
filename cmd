@@ -52,14 +52,24 @@ function cmd_include {
   source "$cmd_dir/$path$CMD_SUFFIX"
 }
 
+function _cmd_check_eval_result {
+  # args: exit_code, eval_expr
+  local exit_code="$1"
+  local eval_expr="$2"
+  if [ "$exit_code" -ne 0 ]; then
+    cmd_log "$cmd_command: eval of expression \`$eval_expr\` failed with exit code $exit_code"
+    return 4
+  fi
+}
+
 # RESOLVER #
 
 CMD_SUFFIX=.cmd
 
 function _cmd_echo_root_run_script {
   # args: root path_from_root, cmd_args...
-  local root="$1"
-  local path_from_root="$2"
+  local root="${1-}"
+  local path_from_root="${2-}"
   if shift 2; then
     # TODO: Accept that cmd_path may leave root dir or prevent it. Add a test either way.
     local cmd_path="$root/$path_from_root$CMD_SUFFIX"
@@ -84,11 +94,12 @@ function _cmd_echo_run_scripts {
 function _cmd_echo_unique_run_script {
   # args: path_from_root, cmd_args...
   # input: sequence of roots (consumed by '_cmd_echo_run_scripts').
+  local path_from_root="${1-}"
   local run_scripts=()
   local r
   while read -r r; do run_scripts+=("$r"); done <<< "$(_cmd_echo_run_scripts "$@")"
 	if [ -z "$run_scripts" ]; then
-		cmd_log "$cmd_command: command \"$1\" not found"
+		cmd_log "$cmd_command: command \"$path_from_root\" not found"
 		return 1
 	fi
 	if [ "${#run_scripts[@]}" -gt 1 ]; then
@@ -113,35 +124,21 @@ function cmd_eval {
       # Convenience: expose $cmd_dir to script/expr.
       local cmd_dir="$(dirname "$cmd_script")"
     fi
-#    cmd_log "evaluating: '$eval_expr'"
     # Eval user-provided expression. Everything in scope is inherited, including args (available as "$@").
     local x=0; eval "$eval_expr" || x=$?
-    if [ "$x" -ne 0 ]; then
-      cmd_log "$cmd_command: eval of expression \`$eval_expr\` failed with exit code $x"
-      return 4
-    fi
+    _cmd_check_eval_result "$x" "$eval_expr"
   }
   local eval_expr="$1"
   shift
-  if [ "$#" -eq 0 ]; then
-    __cmd_eval
-  elif [ "$1" = '--' ]; then
-    # Allow passing argument to eval expr by starting with '--'.
-    shift
-    __cmd_eval "$@"
-  else
-    local run_script # must declare local first as it otherwise eats the called function's return value
-    run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
-    func=__cmd_eval eval "$run_script"
-  fi
+  local run_script # must declare local first as it otherwise eats the called function's return value
+  run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
+  func=__cmd_eval eval "$run_script"
   unset __cmd_eval
 }
 
 function cmd_eval_logged {
   # args: eval_expr, path_from_root, cmd_args...
   function __cmd_eval_log {
-    # args: eval_expr
-    # scope: cmd_script, ...
     local eval_expr="$1"
     if [ "${cmd_script-}" ]; then
       cmd_log "# [$cmd_script]"
@@ -150,7 +147,15 @@ function cmd_eval_logged {
   }
   local eval_expr="$1"
   shift
-  cmd_eval "__cmd_eval_log $(cmd_escape "$eval_expr") && $eval_expr" "$@"
+  local no_script=
+  [ "${1-}" = '--' ] && { shift; no_script=1; }
+  if [ "$#" -eq 0 ] || [ "$no_script" ]; then
+    __cmd_eval_log "$eval_expr"
+    local x=0; eval "$eval_expr" || x=$?
+    _cmd_check_eval_result "$x" "$eval_expr"
+  else
+    cmd_eval "__cmd_eval_log $(cmd_escape "$eval_expr") && $eval_expr" "$@"
+  fi
   unset __cmd_eval_log
 }
 
