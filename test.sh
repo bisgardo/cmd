@@ -90,7 +90,8 @@ function test_eval_quoted_unmatched {
   out=$(cmd --eval ec\'ho hello 2>&1)
   assertEquals 4 $?
   assertContains "$out" "unexpected EOF while looking for matching \`'"
-  assertContains "$out" 'eval expression failed with exit code'
+  assertContains "$out" 'eval of expression'
+  assertContains "$out" 'failed with exit code'
 }
 
 function test_eval_return {
@@ -141,6 +142,19 @@ function test_including {
   out=$(cmd including)
   assertEquals 0 $?
   assertEquals $'Hello from included!\nHello with love!\nHello from including!\nHello with prompts!\nHello, world!\nHello, world!' "$out"
+}
+
+function test_which {
+  local out
+  out=$(cmd --which hello)
+  assertEquals 0 $?
+  assertEquals 'testdata/root1/hello.cmd' "$out"
+}
+function test_cat {
+  local out
+  out=$(cmd --cat nested/hello)
+  assertEquals 0 $?
+  assertEquals "echo 'Hello, nested world!'" "$out"
 }
 
 function test_list {

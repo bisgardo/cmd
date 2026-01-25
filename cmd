@@ -110,14 +110,14 @@ function cmd_eval {
     # args: cmd_args...
     # scope: cmd_root, cmd_script, ...
     if [ "${cmd_script-}" ]; then
-      cmd_log "# [$cmd_script]"
-      local cmd_dir="$(dirname "$cmd_script")" # expose to script for convenience
+      # Convenience: expose $cmd_dir to script/expr.
+      local cmd_dir="$(dirname "$cmd_script")"
     fi
-    cmd_log "> $eval_expr"
+#    cmd_log "evaluating: '$eval_expr'"
     # Eval user-provided expression. Everything in scope is inherited, including args (available as "$@").
     local x=0; eval "$eval_expr" || x=$?
     if [ "$x" -ne 0 ]; then
-      cmd_log "$cmd_command: eval expression failed with exit code $x"
+      cmd_log "$cmd_command: eval of expression \`$eval_expr\` failed with exit code $x"
       return 4
     fi
   }
@@ -137,6 +137,20 @@ function cmd_eval {
   unset __cmd_eval
 }
 
+function cmd_eval_logged {
+  # args: eval_expr, path_from_root, cmd_args...
+  function __cmd_log_script {
+    # scope: cmd_script, ...
+    if [ "${cmd_script-}" ]; then
+      cmd_log "# [$cmd_script]"
+    fi
+  }
+  local eval_expr="$1"
+  shift
+  cmd_eval "__cmd_log_script && cmd_log '> '$(cmd_escape "$eval_expr") && $eval_expr" "$@"
+  unset __cmd_log_and_eval
+}
+
 function cmd_list {
   cmd_split ':' <<< "$CMD_ROOTS" |
     while read -r root; do
@@ -151,17 +165,7 @@ function cmd_list {
 }
 
 function cmd_run {
-  # args: path_from_root, cmd_args...
-  function __cmd_source_script {
-    # args: cmd_args...
-    # scope: cmd_root, cmd_script, ...
-    local cmd_dir="$(dirname "$cmd_script")" # expose to script for convenience
-    source "$cmd_script" "$@" # inherits everything in scope
-  }
-  local run_script # must declare local first as it otherwise eats the called function's return value
-  run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
-  func=__cmd_source_script eval "$run_script"
-  unset __cmd_source_script
+  cmd_eval 'source "$cmd_script"' "$@"
 }
 
 if [ "$#" -eq 0 ]; then
@@ -177,10 +181,22 @@ case "$opt" in
     eval_expr=${opt#--eval=} # contains expr if it was glued using '=', otherwise it's empty
     shift # consume '--eval', whether expr is glued or not
     if [ "$eval_expr" = "$opt" ]; then
-      cmd_eval "$@" # expr was not glued
+      cmd_eval_logged "$@" # expr was not glued
     else
-      cmd_eval "$eval_expr" "$@" # unglue expr
+      cmd_eval_logged "$eval_expr" "$@" # unglue expr
     fi
+    ;;
+  --which)
+    shift
+    cmd_eval 'if [ "${cmd_script-}" ]; then echo "$cmd_script"; else return 1; fi' "$@"
+    ;;
+  --cat)
+    shift
+    cmd_eval 'if [ "${cmd_script-}" ]; then cat "$cmd_script"; else return 1; fi' "$@"
+    ;;
+  --edit)
+    shift
+    cmd_eval 'if [ "${cmd_script-}" ]; then vim "$cmd_script"; else return 1; fi' "$@"
     ;;
   --list)
     cmd_list
