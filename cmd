@@ -12,7 +12,7 @@ function cmd_log {
 	>&2 echo "$@"
 }
 
-function cmd_quote {
+function cmd_escape {
   # args: strings_to_quote
 	local p=
 	for v in "$@"; do
@@ -59,7 +59,7 @@ function _cmd_echo_root_run_script {
     local cmd_path="$root/$path_from_root$CMD_SUFFIX"
     if [ -e "$cmd_path" ]; then
       # Outputs script of the form `cmd_root=... cmd_script=root/p1/p2.cmd $func [args]`.
-      echo "cmd_root=$(cmd_quote "$root") cmd_script=$(cmd_quote "$cmd_path") \$func $(cmd_quote "$@")"
+      echo "cmd_root=$(cmd_escape "$root") cmd_script=$(cmd_escape "$cmd_path") \$func $(cmd_escape "$@")"
     fi
   fi
 }
