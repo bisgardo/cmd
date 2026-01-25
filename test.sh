@@ -73,6 +73,9 @@ function test_stdin {
   out=$((echo the quick; echo lazy dog) | cmd --eval wc hello 2>/dev/null)
   assertEquals 0 $?
   assertEquals "        2         4        19" "$out"
+  out=$((echo the quick; echo lazy dog) | cmd --eval=wc hello 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals "        2         4        19" "$out"
 }
 
 # ---

@@ -134,10 +134,19 @@ if [ "$#" -eq 0 ]; then
   cmd_log "Runs <root>/<command>.cmd, where <root> is a member of the set configured in env var CMD_ROOTS as ':'-separated paths."
   exit 1
 fi
-if [ "$1" = "--eval" ]; then
-  shift
-  # Instead of evaluating the resolved script (cmd_script), evaluate the provided expression.
-  cmd_eval "$@"
-else
-  cmd_run "$@"
-fi
+opt="$1"
+case "$opt" in
+  --eval*)
+    # Instead of evaluating the resolved script (cmd_script), evaluate the provided expression.
+    eval_expr=${opt#--eval=} # contains expr if it was glued using '=', otherwise it's empty
+    shift # consume '--eval', whether expr is glued or not
+    if [ "$eval_expr" = "$opt" ]; then
+      cmd_eval "$@" # expr was not glued
+    else
+      cmd_eval "$eval_expr" "$@" # unglue expr
+    fi
+    ;;
+  *)
+    cmd_run "$@"
+    ;;
+esac
