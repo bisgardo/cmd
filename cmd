@@ -2,6 +2,7 @@
 
 set -euo pipefail
 
+CMD_ROOTS="${CMD_ROOTS-.}"
 _cmd_name="$(basename "$0")"
 
 # UTILITIES #
