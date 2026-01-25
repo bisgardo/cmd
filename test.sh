@@ -133,6 +133,13 @@ function test_stdin {
   assertEquals "2 4 19" "$(echo $out)"
 }
 
+function test_list {
+  local out
+  out=$(cmd --list 2>&1)
+  assertEquals 0 $?
+  assertEquals $'# testdata/root1\nhello\nnested/hello\n# testdata/root2\nwc\necho' "$out"
+}
+
 # ---
 
 function oneTimeSetUp {

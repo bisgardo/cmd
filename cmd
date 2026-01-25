@@ -98,19 +98,6 @@ function _cmd_echo_unique_run_script {
   echo "$run_scripts" # single-element-array
 }
 
-function cmd_run {
-  # args: path_from_root, cmd_args...
-  function __source_script {
-    # args: cmd_args...
-    # scope: cmd_root, cmd_script, ...
-    source "$cmd_script" "$@" # inherits everything in scope
-  }
-  local run_script # must declare local first as it otherwise eats the called function's return value
-  run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
-  func=__source_script eval "$run_script"
-  unset __source_script
-}
-
 function cmd_eval {
   # args: eval_expr, path_from_root, cmd_args...
   function __eval {
@@ -127,7 +114,6 @@ function cmd_eval {
   }
   local eval_expr="$1"
   shift
-#  cmd_log "\$#=$# \$1=$1 eval_expr=$eval_expr"
   if [ "$#" -eq 0 ]; then
     __eval
   elif [ "$1" = '--' ]; then
@@ -140,6 +126,31 @@ function cmd_eval {
     func=__eval eval "$run_script"
   fi
   unset __eval
+}
+
+function cmd_list {
+  cmd_split ':' <<< "$CMD_ROOTS" |
+    while read -r root; do
+      cmd_log "# $root"
+      find "${root}" -name "*$CMD_SUFFIX" |
+       while read -r script; do
+         local script_without_root="${script#$root/}"
+         echo "${script_without_root%$CMD_SUFFIX}"
+       done
+    done
+}
+
+function cmd_run {
+  # args: path_from_root, cmd_args...
+  function __source_script {
+    # args: cmd_args...
+    # scope: cmd_root, cmd_script, ...
+    source "$cmd_script" "$@" # inherits everything in scope
+  }
+  local run_script # must declare local first as it otherwise eats the called function's return value
+  run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
+  func=__source_script eval "$run_script"
+  unset __source_script
 }
 
 if [ "$#" -eq 0 ]; then
@@ -159,6 +170,9 @@ case "$opt" in
     else
       cmd_eval "$eval_expr" "$@" # unglue expr
     fi
+    ;;
+  --list)
+    cmd_list
     ;;
   *)
     cmd_run "$@"
