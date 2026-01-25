@@ -145,7 +145,8 @@ function cmd_list {
        while read -r script; do
          local script_without_root="${script#$root/}"
          echo "${script_without_root%$CMD_SUFFIX}"
-       done
+       done |
+       sort
     done
 }
 
