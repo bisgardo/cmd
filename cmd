@@ -86,12 +86,12 @@ function _cmd_echo_unique_run_script {
 		return 1
 	fi
 	if [ "${#run_scripts[@]}" -gt 1 ]; then
-	  function __echo_script {
+	  function __cmd_echo_script {
 	    # scope: cmd_root, cmd_script
 	    echo $cmd_script
 	  }
-	  local scripts_joined=$(for r in "${run_scripts[@]}"; do func=__echo_script eval "$r"; done | cmd_join ', ')
-	  unset __echo_script
+	  local scripts_joined=$(for r in "${run_scripts[@]}"; do func=__cmd_echo_script eval "$r"; done | cmd_join ', ')
+	  unset __cmd_echo_script
 	  cmd_log "$_cmd_name: ambiguous command (matched: $scripts_joined)"
 	  return 2
   fi
@@ -100,7 +100,7 @@ function _cmd_echo_unique_run_script {
 
 function cmd_eval {
   # args: eval_expr, path_from_root, cmd_args...
-  function __eval {
+  function __cmd_eval {
     # args: cmd_args...
     # scope: cmd_root, cmd_script, ...
     if [ "${cmd_script-}" ]; then cmd_log "# [$cmd_script]"; fi
@@ -115,17 +115,17 @@ function cmd_eval {
   local eval_expr="$1"
   shift
   if [ "$#" -eq 0 ]; then
-    __eval
+    __cmd_eval
   elif [ "$1" = '--' ]; then
     # Allow passing argument to eval expr by starting with '--'.
     shift
-    __eval "$@"
+    __cmd_eval "$@"
   else
     local run_script # must declare local first as it otherwise eats the called function's return value
     run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
-    func=__eval eval "$run_script"
+    func=__cmd_eval eval "$run_script"
   fi
-  unset __eval
+  unset __cmd_eval
 }
 
 function cmd_list {
@@ -142,15 +142,15 @@ function cmd_list {
 
 function cmd_run {
   # args: path_from_root, cmd_args...
-  function __source_script {
+  function __cmd_source_script {
     # args: cmd_args...
     # scope: cmd_root, cmd_script, ...
     source "$cmd_script" "$@" # inherits everything in scope
   }
   local run_script # must declare local first as it otherwise eats the called function's return value
   run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
-  func=__source_script eval "$run_script"
-  unset __source_script
+  func=__cmd_source_script eval "$run_script"
+  unset __cmd_source_script
 }
 
 if [ "$#" -eq 0 ]; then
