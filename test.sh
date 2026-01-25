@@ -1,12 +1,12 @@
 function cmd {
-  CMD_ROOTS=testdata/root1:testdata/root2 ./cmd "$@"
+  CMD_ROOTS='testdata/root1:testdata/root2:testdata/spaced root' ./cmd "$@"
 }
 
 function test_can_run {
   local out # must declare 'local' before assignment for exit code to propagate...
   out=$(cmd 2>&1)
   assertEquals 1 $?
-  assertContains "$out" "cmd is a tool"
+  assertContains "$out" 'cmd is a tool'
 }
 
 function test_can_run_hello {
@@ -14,7 +14,7 @@ function test_can_run_hello {
   local out
   out=$(cmd hello 2>&1)
   assertEquals 0 $?
-  assertEquals "Hello, world!" "$out"
+  assertEquals 'Hello, world!' "$out"
 }
 
 function test_can_run_nested_hello {
@@ -22,10 +22,10 @@ function test_can_run_nested_hello {
   local out
   out=$(cmd nested/hello 2>&1)
   assertEquals 0 $?
-  assertEquals "Hello, nested world!" "$out"
+  assertEquals 'Hello, nested world!' "$out"
   out=$(cmd nested hello 2>&1)
   assertEquals 1 $?
-  assertEquals "cmd: command \"nested\" not found" "$out"
+  assertEquals './cmd: command "nested" not found' "$out"
 }
 
 function test_can_run_echo {
@@ -33,21 +33,21 @@ function test_can_run_echo {
   local out
   out=$(cmd echo hello echo 2>&1)
   assertEquals 0 $?
-  assertEquals "hello echo" "$out"
+  assertEquals 'hello echo' "$out"
 }
 
 function test_cannot_run_nonexistent {
   local out
   out=$(cmd nonexistent 2>&1)
   assertEquals 1 $?
-  assertEquals "cmd: command \"nonexistent\" not found" "$out"
+  assertEquals './cmd: command "nonexistent" not found' "$out"
 }
 
 function test_cannot_run_ambiguous {
   local out
   out=$(CMD_ROOTS=testdata/root1:testdata/root1/nested ./cmd hello 2>&1)
   assertEquals 2 $?
-  assertEquals "cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)" "$out"
+  assertEquals './cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)' "$out"
 }
 
 function test_can_handle_quotes {
@@ -60,16 +60,19 @@ function test_can_handle_quotes {
 
 function test_eval_env {
   local out
-  out=$(cmd --eval 'echo cmd_root=$cmd_root cmd_script=$cmd_script' hello 2>/dev/null)
+  out=$(cmd --eval 'echo cmd_root=$cmd_root cmd_script=$cmd_script cmd_dir=$cmd_dir' hello 2>/dev/null)
   assertEquals 0 $?
-  assertEquals "cmd_root=testdata/root1 cmd_script=testdata/root1/hello.cmd" "$out"
+  assertEquals 'cmd_root=testdata/root1 cmd_script=testdata/root1/hello.cmd cmd_dir=testdata/root1' "$out"
+  out=$(cmd --eval 'echo cmd_root=$cmd_root cmd_script=$cmd_script cmd_dir=$cmd_dir' nested/hello 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'cmd_root=testdata/root1 cmd_script=testdata/root1/nested/hello.cmd cmd_dir=testdata/root1/nested' "$out"
 }
 
 function test_eval_echo_args {
   local out
   out=$(cmd --eval 'echo $@' hello a b c 2>/dev/null)
   assertEquals 0 $?
-  assertEquals "a b c" "$out"
+  assertEquals 'a b c' "$out"
 }
 
 function test_eval_quoted {
@@ -87,7 +90,7 @@ function test_eval_quoted_unmatched {
   out=$(cmd --eval ec\'ho hello 2>&1)
   assertEquals 4 $?
   assertContains "$out" "unexpected EOF while looking for matching \`'"
-  assertContains "$out" "eval expression failed with exit code"
+  assertContains "$out" 'eval expression failed with exit code'
 }
 
 function test_eval_return {
@@ -104,14 +107,14 @@ function test_cannot_eval_ambiguous {
   local out
   out=$(CMD_ROOTS=testdata/root1:testdata/root1/nested ./cmd --eval 'echo goodbye' hello 2>&1)
   assertEquals 2 $?
-  assertEquals "cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)" "$out"
+  assertEquals './cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)' "$out"
 }
 
 function test_eval_empty {
   # Run "eval" outside the context of a command.
   # Use case: access internal utility without having to create a .cmd file.
   local out
-  out=$(cmd --eval 'cmd_split ,' <<< "a,b,c" 2>&1)
+  out=$(cmd --eval 'cmd_split ,' <<< 'a,b,c' 2>&1)
   assertEquals 0 $?
   assertEquals $'> cmd_split ,\na\nb\nc' "$out"
   out=$(cmd --eval 'echo "$@"' -- x y z 2>&1)
@@ -124,20 +127,27 @@ function test_stdin {
   local out
   out=$((echo the quick; echo lazy dog) | cmd wc 2>&1)
   assertEquals 0 $?
-  assertEquals "2 4 19" "$(echo $out)" # let unquoted echo collapse whitespace to eliminate platform differences of `wc`
+  assertEquals '2 4 19' "$(echo $out)" # let unquoted echo collapse whitespace to eliminate platform differences of `wc`
   out=$((echo the quick; echo lazy dog) | cmd --eval wc hello 2>/dev/null)
   assertEquals 0 $?
-  assertEquals "2 4 19" "$(echo $out)"
+  assertEquals '2 4 19' "$(echo $out)"
   out=$((echo the quick; echo lazy dog) | cmd --eval=wc hello 2>/dev/null)
   assertEquals 0 $?
-  assertEquals "2 4 19" "$(echo $out)"
+  assertEquals '2 4 19' "$(echo $out)"
+}
+
+function test_including {
+  local out
+  out=$(cmd including)
+  assertEquals 0 $?
+  assertEquals $'Hello from included!\nHello with love!\nHello from including!\nHello with prompts!\nHello, world!\nHello, world!' "$out"
 }
 
 function test_list {
   local out
   out=$(cmd --list 2>&1)
   assertEquals 0 $?
-  assertEquals $'# testdata/root1\nhello\nnested/hello\n# testdata/root2\nwc\necho' "$out"
+  assertEquals $'# testdata/root1\nhello\nnested/hello\n# testdata/root2\nwc\necho\n# testdata/spaced root\nincluding' "$out"
 }
 
 # ---

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 CMD_ROOTS="${CMD_ROOTS-.}"
-_cmd_name="$(basename "$0")"
+cmd_command="$0"
 
 # UTILITIES #
 
@@ -47,6 +47,11 @@ function cmd_join {
   echo -e "$res"
 }
 
+function cmd_include {
+  local path="$1"
+  source "$cmd_dir/$path$CMD_SUFFIX"
+}
+
 # RESOLVER #
 
 CMD_SUFFIX=.cmd
@@ -56,6 +61,7 @@ function _cmd_echo_root_run_script {
   local root="$1"
   local path_from_root="$2"
   if shift 2; then
+    # TODO: Accept that cmd_path may leave root dir or prevent it. Add a test either way.
     local cmd_path="$root/$path_from_root$CMD_SUFFIX"
     if [ -e "$cmd_path" ]; then
       # Outputs script of the form `cmd_root=... cmd_script=root/p1/p2.cmd $func [args]`.
@@ -82,7 +88,7 @@ function _cmd_echo_unique_run_script {
   local r
   while read -r r; do run_scripts+=("$r"); done <<< "$(_cmd_echo_run_scripts "$@")"
 	if [ -z "$run_scripts" ]; then
-		cmd_log "$_cmd_name: command \"$1\" not found"
+		cmd_log "$cmd_command: command \"$1\" not found"
 		return 1
 	fi
 	if [ "${#run_scripts[@]}" -gt 1 ]; then
@@ -92,7 +98,7 @@ function _cmd_echo_unique_run_script {
 	  }
 	  local scripts_joined=$(for r in "${run_scripts[@]}"; do func=__cmd_echo_script eval "$r"; done | cmd_join ', ')
 	  unset __cmd_echo_script
-	  cmd_log "$_cmd_name: ambiguous command (matched: $scripts_joined)"
+	  cmd_log "$cmd_command: ambiguous command (matched: $scripts_joined)"
 	  return 2
   fi
   echo "$run_scripts" # single-element-array
@@ -103,12 +109,15 @@ function cmd_eval {
   function __cmd_eval {
     # args: cmd_args...
     # scope: cmd_root, cmd_script, ...
-    if [ "${cmd_script-}" ]; then cmd_log "# [$cmd_script]"; fi
+    if [ "${cmd_script-}" ]; then
+      cmd_log "# [$cmd_script]"
+      local cmd_dir="$(dirname "$cmd_script")" # expose to script for convenience
+    fi
     cmd_log "> $eval_expr"
     # Eval user-provided expression. Everything in scope is inherited, including args (available as "$@").
     local x=0; eval "$eval_expr" || x=$?
     if [ "$x" -ne 0 ]; then
-      cmd_log "$_cmd_name: eval expression failed with exit code $x"
+      cmd_log "$cmd_command: eval expression failed with exit code $x"
       return 4
     fi
   }
@@ -145,6 +154,7 @@ function cmd_run {
   function __cmd_source_script {
     # args: cmd_args...
     # scope: cmd_root, cmd_script, ...
+    local cmd_dir="$(dirname "$cmd_script")" # expose to script for convenience
     source "$cmd_script" "$@" # inherits everything in scope
   }
   local run_script # must declare local first as it otherwise eats the called function's return value
