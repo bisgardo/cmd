@@ -75,7 +75,7 @@ function _cmd_echo_run_scripts {
     done
 }
 
-function _cmd_resolve_unique_run_script {
+function _cmd_echo_unique_run_script {
   # args: path_from_root, cmd_args...
   # input: sequence of roots (consumed by '_cmd_echo_run_scripts').
   local run_scripts=()
@@ -106,7 +106,7 @@ function cmd_run {
     source "$cmd_script" "$@" # inherits everything in scope
   }
   local run_script # must declare local first as it otherwise eats the called function's return value
-  run_script=$(_cmd_resolve_unique_run_script "$@" <<< "$CMD_ROOTS")
+  run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
   func=__source_script eval "$run_script"
   unset __source_script
 }
@@ -128,10 +128,9 @@ function cmd_eval {
   }
   local eval_expr="$1"
   shift
-  # For eval, we don't require match to be unique; evaluate eval_expr on all matches.
-  for r in "$(_cmd_resolve_unique_run_script "$@" <<< "$CMD_ROOTS")"; do
-    func=__eval eval "$r"
-  done
+  local run_script # must declare local first as it otherwise eats the called function's return value
+  run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
+  func=__eval eval "$run_script"
   unset __eval
 }
 

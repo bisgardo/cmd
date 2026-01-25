@@ -97,6 +97,13 @@ function test_eval_return {
   assertNull "$out" # prints nothing except stdout
 }
 
+function test_cannot_eval_ambiguous {
+  local out
+  out=$(CMD_ROOTS=testdata/root1:testdata/root1/nested ./cmd --eval 'echo goodbye' hello 2>&1)
+  assertEquals 2 $?
+  assertEquals "cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)" "$out"
+}
+
 function test_stdin {
   local out
   out=$((echo the quick; echo lazy dog) | cmd wc 2>&1)
