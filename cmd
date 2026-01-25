@@ -117,7 +117,8 @@ function cmd_eval {
     # scope: cmd_root, cmd_script, ...
     cmd_log "# [$cmd_script]"
     cmd_log "> $eval_expr"
-    eval "$eval_expr" # inherits everything in scope
+    # Eval user-provided expression. Everything in scope is inherited, including args (available as "$@").
+    eval "$eval_expr"
   }
   local eval_expr="$1"
   shift

@@ -65,6 +65,13 @@ function test_eval_env {
   assertEquals "cmd_root=testdata/root1 cmd_script=testdata/root1/hello.cmd" "$out"
 }
 
+function test_eval_echo_args {
+  local out
+  out=$(cmd --eval 'echo $@' hello a b c 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals "a b c" "$out"
+}
+
 function test_stdin {
   local out
   out=$((echo the quick; echo lazy dog) | cmd wc 2>&1)
