@@ -192,7 +192,8 @@ function cmd_shell {
       eval "$expr"
     done
   }
-  cmd_eval __cmd_shell "$@"
+  # Add commented-out '$cmd_script' to activate logic in 'cmd_eval' to require it to be resolved.
+  cmd_eval "__cmd_shell # \$cmd_script" "$@"
   unset __cmd_shell
 }
 

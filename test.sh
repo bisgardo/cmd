@@ -235,6 +235,9 @@ function test_shell {
   out=$((echo 'CMD_ROOTS="testdata/root1/nested"'; echo 'cmd_run hello') | cmd --shell hello 2>/dev/null)
   assertEquals 0 $?
   assertEquals $'Hello, nested world!' "$out"
+  out=$(cmd --shell 2>&1)
+  assertEquals 5 $?
+  assertEquals "cmd: command required" "$out"
 }
 
 function test_shell_in_shell {
