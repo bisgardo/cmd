@@ -150,9 +150,12 @@ function test_cannot_eval_without_expr {
   assertContains "$out" 'failed with exit code 127'
 }
 
-function test_eval_requires_command_when_using_cmd_script {
+function test_eval_requires_command_when_using_dependent_var {
   local out
   out=$(cmd --eval 'echo "$cmd_script"' 2>&1)
+  assertEquals 5 $?
+  assertEquals "cmd: command required" "$out"
+  out=$(cmd --eval 'echo "$cmd_dir"' 2>&1)
   assertEquals 5 $?
   assertEquals "cmd: command required" "$out"
 }

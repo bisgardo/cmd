@@ -112,8 +112,8 @@ function cmd_eval {
     if [ "${cmd_script-}" ]; then
       # Convenience: expose $cmd_dir to script/expr in eval below.
       local cmd_dir="$(dirname "$cmd_script")"
-    elif [[ "$eval_expr" == *'$cmd_script'* ]]; then
-      # Reject any expression that includes the substring "$cmd_script" if it doesn't have a value.
+    elif [[ "$eval_expr" =~ '$cmd_script'|'$cmd_dir' ]]; then
+      # Reject any expression that includes the substrings "$cmd_script" or "$cmd_dir" if it doesn't have a value.
       cmd_log "$cmd_command: command required"
       return 5
     fi
