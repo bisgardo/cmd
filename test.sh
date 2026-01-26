@@ -111,7 +111,7 @@ function test_cannot_eval_ambiguous {
   assertEquals 'cmd: ambiguous command (matched: testdata/root1/hello.cmd, testdata/root1/nested/hello.cmd)' "$out"
 }
 
-function test_eval_empty {
+function test_eval_without_command {
   # Run "eval" outside the context of a command.
   # Use case: access internal utility without having to create a .cmd file.
   local out
@@ -121,6 +121,40 @@ function test_eval_empty {
   out=$(cmd --eval 'echo "$@"' -- x y z 2>&1)
   assertEquals 0 $?
   assertEquals $'> echo "$@"\nx y z' "$out"
+}
+
+function test_cannot_eval_without_expr {
+  local out
+  out=$(cmd --eval 2>&1)
+  assertEquals 6 $?
+  assertEquals 'cmd: no expression provided' "$out"
+  out=$(cmd --eval= 2>&1)
+  assertEquals 4 $?
+  assertContains "$out" 'command not found'
+  assertContains "$out" 'cmd: eval of expression'
+  assertContains "$out" 'failed with exit code 127'
+  out=$(cmd --eval '' 2>&1)
+  assertEquals 4 $?
+  assertContains "$out" 'command not found'
+  assertContains "$out" 'cmd: eval of expression'
+  assertContains "$out" 'failed with exit code 127'
+  out=$(cmd --eval='' 2>&1)
+  assertEquals 4 $?
+  assertContains "$out" 'command not found'
+  assertContains "$out" 'cmd: eval of expression'
+  assertContains "$out" 'failed with exit code 127'
+  out=$(cmd --eval '' hello 2>&1)
+  assertEquals 4 $?
+  assertContains "$out" 'command not found'
+  assertContains "$out" 'cmd: eval of expression'
+  assertContains "$out" 'failed with exit code 127'
+}
+
+function test_eval_requires_command_when_using_cmd_script {
+  local out
+  out=$(cmd --eval 'echo "$cmd_script"' 2>&1)
+  assertEquals 5 $?
+  assertEquals "cmd: command required" "$out"
 }
 
 function test_stdin {
@@ -146,15 +180,22 @@ function test_including {
 
 function test_which {
   local out
-  out=$(cmd --which hello)
+  out=$(cmd --which hello 2>&1)
   assertEquals 0 $?
   assertEquals 'testdata/root1/hello.cmd' "$out"
+  out=$(cmd --which 2>&1)
+  assertEquals 5 $?
+  assertEquals "cmd: command required" "$out"
 }
+
 function test_cat {
   local out
-  out=$(cmd --cat nested/hello)
+  out=$(cmd --cat nested/hello 2>&1)
   assertEquals 0 $?
   assertEquals "echo 'Hello, nested world!'" "$out"
+  out=$(cmd --cat 2>&1)
+  assertEquals 5 $?
+  assertEquals "cmd: command required" "$out"
 }
 
 function test_list {

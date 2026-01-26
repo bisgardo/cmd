@@ -108,12 +108,15 @@ function cmd_eval {
   # args: eval_expr, path_from_root, cmd_args...
   function __cmd_eval {
     # args: cmd_args...
-    # scope: cmd_root, cmd_script, ...
+    # scope: eval_expr, cmd_root, cmd_script, ...
     if [ "${cmd_script-}" ]; then
-      # Convenience: expose $cmd_dir to script/expr.
+      # Convenience: expose $cmd_dir to script/expr in eval below.
       local cmd_dir="$(dirname "$cmd_script")"
+    elif [[ "$eval_expr" == *'$cmd_script'* ]]; then
+      # Reject any expression that includes the substring "$cmd_script" if it doesn't have a value.
+      cmd_log "$cmd_command: command required"
+      return 5
     fi
-#    cmd_log "evaluating: '$eval_expr'"
     # Eval user-provided expression. Everything in scope is inherited, including args (available as "$@").
     local x=0; eval "$eval_expr" || x=$?
     if [ "$x" -ne 0 ]; then
@@ -148,10 +151,14 @@ function cmd_eval_logged {
     fi
     cmd_log "> $eval_expr"
   }
-  local eval_expr="$1"
-  shift
-  cmd_eval "__cmd_eval_log $(cmd_escape "$eval_expr") && $eval_expr" "$@"
-  unset __cmd_eval_log
+  local eval_expr="${1:-''}" # default to *quoted* empty string if it was empty or unset
+  if shift; then
+    cmd_eval "__cmd_eval_log $(cmd_escape "$eval_expr") && $eval_expr" "$@"
+    unset __cmd_eval_log
+  else
+    cmd_log "$cmd_command: no expression provided"
+    return 6
+  fi
 }
 
 function cmd_list {
@@ -181,7 +188,7 @@ opt="$1"
 case "$opt" in
   --eval*)
     # Instead of evaluating the resolved script (cmd_script), evaluate the provided expression.
-    eval_expr=${opt#--eval=} # contains expr if it was glued using '=', otherwise it's empty
+    eval_expr=${opt#--eval=} # contains expr if it was glued using '=', otherwise $opt.
     shift # consume '--eval', whether expr is glued or not
     if [ "$eval_expr" = "$opt" ]; then
       cmd_eval_logged "$@" # expr was not glued
@@ -191,15 +198,15 @@ case "$opt" in
     ;;
   --which)
     shift
-    cmd_eval 'if [ "${cmd_script-}" ]; then echo "$cmd_script"; else return 1; fi' "$@"
+    cmd_eval 'echo "$cmd_script"' "$@"
     ;;
   --cat)
     shift
-    cmd_eval 'if [ "${cmd_script-}" ]; then cat "$cmd_script"; else return 1; fi' "$@"
+    cmd_eval 'cat "$cmd_script"' "$@"
     ;;
   --edit)
     shift
-    cmd_eval 'if [ "${cmd_script-}" ]; then vim "$cmd_script"; else return 1; fi' "$@"
+    cmd_eval 'vim "$cmd_script"' "$@"
     ;;
   --list)
     cmd_list
