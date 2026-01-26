@@ -123,6 +123,18 @@ function test_eval_without_command {
   assertEquals $'> echo "$@"\nx y z' "$out"
 }
 
+function test_eval_can_assign_exit_code {
+  # Not necessary useful or even desired behavior, but it's observable and therefore nice to know that it's consistent over time and platforms...
+  local out
+  out=$(cmd --eval 'cmd_exit_code=42' 2>&1)
+  assertEquals 4 $? # error handler kicked in
+  assertContains "$out" 'cmd: eval of expression'
+  assertContains "$out" 'failed with exit code 42'
+  out=$(cmd --eval 'cmd_exit_code=42; return 69' 2>/dev/null)
+  assertEquals 69 $? # error handler didn't kick in (still not exactly sure why this is)
+  assertNull "$out"
+}
+
 function test_cannot_eval_without_expr {
   local out
   out=$(cmd --eval 2>&1)

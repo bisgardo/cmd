@@ -118,9 +118,9 @@ function cmd_eval {
       return 5
     fi
     # Eval user-provided expression. Everything in scope is inherited, including args (available as "$@").
-    local x=0; eval "$eval_expr" || x=$?
-    if [ "$x" -ne 0 ]; then
-      cmd_log "$cmd_command: eval of expression \`$eval_expr\` failed with exit code $x"
+    local cmd_exit_code=0; eval "$eval_expr" || cmd_exit_code=$?
+    if [ "$cmd_exit_code" -ne 0 ]; then
+      cmd_log "$cmd_command: eval of expression \`$eval_expr\` failed with exit code $cmd_exit_code"
       return 4
     fi
   }
