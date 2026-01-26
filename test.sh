@@ -208,7 +208,7 @@ function test_which {
   assertEquals 'testdata/root1/hello.cmd' "$out"
   out=$(cmd --which 2>&1)
   assertEquals 5 $?
-  assertEquals "cmd: command required" "$out"
+  assertEquals 'cmd: command required' "$out"
 }
 
 function test_cat {
@@ -218,7 +218,7 @@ function test_cat {
   assertEquals "echo 'Hello, nested world!'" "$out"
   out=$(cmd --cat 2>&1)
   assertEquals 5 $?
-  assertEquals "cmd: command required" "$out"
+  assertEquals 'cmd: command required' "$out"
 }
 
 function test_shell {
@@ -235,9 +235,16 @@ function test_shell {
   out=$((echo 'CMD_ROOTS="testdata/root1/nested"'; echo 'cmd_run hello') | cmd --shell hello 2>/dev/null)
   assertEquals 0 $?
   assertEquals $'Hello, nested world!' "$out"
-  out=$(cmd --shell 2>&1)
-  assertEquals 5 $?
-  assertEquals "cmd: command required" "$out"
+}
+
+function test_shell_without_command {
+  local out
+  out=$((echo '.') | cmd --shell 2>&1)
+  assertEquals 1 $?
+  assertContains "$out" 'cmd_script: unbound variable'
+  out=$((echo 'cmd_script=testdata/root1/hello.cmd'; echo '.') | cmd --shell 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'Hello, world!' "$out"
 }
 
 function test_shell_in_shell {

@@ -140,15 +140,20 @@ function cmd_eval {
   unset __cmd_eval
 }
 
+function _cmd_log_script {
+  # scope: cmd_script?
+  if [ "${cmd_script-}" ]; then
+    cmd_log "# [$cmd_script]"
+  fi
+}
+
 function cmd_eval_logged {
   # args: eval_expr, path_from_root, cmd_args...
   function __cmd_eval_log {
     # args: eval_expr
-    # scope: cmd_script, ...
+    # scope: cmd_script?, ...
     local eval_expr="$1"
-    if [ "${cmd_script-}" ]; then
-      cmd_log "# [$cmd_script]"
-    fi
+    _cmd_log_script
     cmd_log "> $eval_expr"
   }
   local eval_expr="${1:-''}" # default to *quoted* empty string if it was empty or unset
@@ -180,20 +185,20 @@ CMD_SHELL_PROMPT_EXPANDED="${CMD_SHELL_PROMPT//?/ }$CMD_SHELL_PROMPT" # prompt r
 function cmd_shell {
   # args: path_from_root, cmd_args...
   function __cmd_shell {
-    # scope: cmd_script, ...
-    cmd_log "# [$cmd_script]"
+    # scope: cmd_script?, ...
+    _cmd_log_script
     local expr
     while read -erp "$CMD_SHELL_PROMPT" expr; do
       if [ "$expr" = '.' ]; then
         # Shortcut for loading the command.
         expr='source $cmd_script'
-        echo "$CMD_SHELL_PROMPT_EXPANDED$expr"
+        cmd_log "$CMD_SHELL_PROMPT_EXPANDED$expr"
       fi
       eval "$expr"
     done
   }
   # Add commented-out '$cmd_script' to activate logic in 'cmd_eval' to require it to be resolved.
-  cmd_eval "__cmd_shell # \$cmd_script" "$@"
+  cmd_eval __cmd_shell "$@"
   unset __cmd_shell
 }
 
