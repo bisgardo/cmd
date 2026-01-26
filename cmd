@@ -48,8 +48,8 @@ function cmd_join {
 }
 
 function cmd_include {
-  local path="$1"
-  source "$cmd_dir/$path$CMD_SUFFIX"
+  local cmd_script_included="$cmd_dir/$1$CMD_SUFFIX"
+  source "$cmd_script_included"
 }
 
 # RESOLVER #
@@ -175,7 +175,7 @@ function cmd_list {
 }
 
 CMD_SHELL_PROMPT='> '
-CMD_SHELL_PROMPT_EXPANDED="${CMD_SHELL_PROMPT//?/ }$CMD_SHELL_PROMPT" # "prompt replaced by spaces followed by prompt
+CMD_SHELL_PROMPT_EXPANDED="${CMD_SHELL_PROMPT//?/ }$CMD_SHELL_PROMPT" # prompt replaced by spaces followed by prompt
 
 function cmd_shell {
   # args: path_from_root, cmd_args...

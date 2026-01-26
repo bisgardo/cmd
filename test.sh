@@ -193,6 +193,14 @@ function test_including {
   assertEquals $'Hello from included!\nHello with love!\nHello from including!\nHello with prompts!\nHello, world!\nHello, world!' "$out"
 }
 
+function test_include_variable {
+  local out
+  # local variable 'cmd_script_included' leaks from 'cmd_include' into included script, but isn't in scope after include returns.
+  out=$(CMD_ROOTS=./testdata/test_include_variable ./cmd including)
+  assertEquals 0 $?
+  assertEquals $'including.cmd (before include): cmd_script_included=\nincluded.cmd: cmd_script_included=./testdata/test_include_variable/included.cmd\nincluding.cmd (after include): cmd_script_included=' "$out"
+}
+
 function test_which {
   local out
   out=$(cmd --which hello 2>&1)
