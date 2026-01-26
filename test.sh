@@ -201,6 +201,22 @@ function test_cat {
   assertEquals "cmd: command required" "$out"
 }
 
+function test_shell {
+  local out
+  # Evaluate in shell: print cmd, then include other command by relative path.
+  out=$((echo 'echo $cmd_script'; echo 'cmd_include nested/hello') | cmd --shell hello 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals $'testdata/root1/hello.cmd\nHello, nested world!' "$out"
+  # Same as above, but also verify log on stderr.
+  out=$((echo 'echo $cmd_script'; echo 'cmd_include nested/hello') | cmd --shell hello 2>&1)
+  assertEquals 0 $?
+  assertEquals $'# [testdata/root1/hello.cmd]\ntestdata/root1/hello.cmd\nHello, nested world!' "$out"
+  # Run other command by custom root (shows that values persist from one line to the next).
+  out=$((echo 'CMD_ROOTS="testdata/root1/nested"'; echo 'cmd_run hello') | cmd --shell hello 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals $'Hello, nested world!' "$out"
+}
+
 function test_list {
   local out
   out=$(cmd --list 2>&1)
