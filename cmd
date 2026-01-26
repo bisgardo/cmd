@@ -174,6 +174,28 @@ function cmd_list {
     done
 }
 
+CMD_SHELL_PROMPT='> '
+CMD_SHELL_PROMPT_EXPANDED="${CMD_SHELL_PROMPT//?/ }$CMD_SHELL_PROMPT" # "prompt replaced by spaces followed by prompt
+
+function cmd_shell {
+  # args: path_from_root, cmd_args...
+  function __cmd_shell {
+    # scope: cmd_script, ...
+    cmd_log "# [$cmd_script]"
+    local expr
+    while read -erp "$CMD_SHELL_PROMPT" expr; do
+      if [ "$expr" = '.' ]; then
+        # Shortcut for loading the command.
+        expr='source $cmd_script'
+        echo "$CMD_SHELL_PROMPT_EXPANDED$expr"
+      fi
+      eval "$expr"
+    done
+  }
+  cmd_eval __cmd_shell "$@"
+  unset __cmd_shell
+}
+
 function cmd_run {
   cmd_eval 'source "$cmd_script"' "$@"
 }
@@ -207,6 +229,10 @@ case "$opt" in
   --edit)
     shift
     cmd_eval 'vim "$cmd_script"' "$@"
+    ;;
+  --shell)
+    shift
+    cmd_shell "$@"
     ;;
   --list)
     cmd_list
