@@ -237,6 +237,15 @@ function test_shell {
   assertEquals $'Hello, nested world!' "$out"
 }
 
+function test_shell_in_shell {
+  local out
+  # Create new shell for 'nested/hello' from inside the shell for 'hello' using 'cmd_shell'.
+  # Then show that '$cmd_dir' is evaluated from within the inner shell.
+  out=$((echo 'cmd_shell nested/hello'; echo 'echo $cmd_dir') | cmd --shell hello 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'testdata/root1/nested' "$out"
+}
+
 function test_list {
   local out
   out=$(cmd --list 2>&1)
