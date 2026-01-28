@@ -106,8 +106,8 @@ function __cmd_echo_script {
 }
 
 function cmd_eval {
-  # args: eval_expr, path_from_root, cmd_args...
-  local eval_expr="$1"
+  # args: __cmd_eval_expr, path_from_root, cmd_args...
+  local __cmd_eval_expr="$1"
   shift
   if [ "$#" -eq 0 ]; then
     __cmd_eval
@@ -124,21 +124,28 @@ function cmd_eval {
 
 function __cmd_eval {
   # args: cmd_args...
-  # scope: eval_expr, cmd_root, cmd_script, ...
+  # scope: __cmd_eval_expr, cmd_root, cmd_script, ...
   if [ "${cmd_script-}" ]; then
     # Convenience: expose $cmd_dir to script/expr in eval below.
     local cmd_dir="$(dirname "$cmd_script")"
-  elif [[ "$eval_expr" =~ '$cmd_script'|'$cmd_dir' ]]; then
+  elif [[ "$__cmd_eval_expr" =~ '$cmd_script'|'$cmd_dir' ]]; then
     # Reject any expression that includes the substrings "$cmd_script" or "$cmd_dir" if it doesn't have a value.
     cmd_log "$cmd_command: command required"
     return 5
   fi
-  # Eval user-provided expression. Everything in scope is inherited, including args (accessible as "$@").
-  local cmd_exit_code=0; eval "$eval_expr" || cmd_exit_code=$?
+  # Wrapping 'eval' in __cmd_eval_wrap to let 'return' stmts in $__cmd_eval_expr make that func return instead of this one.
+  local cmd_exit_code=0; __cmd_eval_wrap "$@" || cmd_exit_code=$?
   if [ "$cmd_exit_code" -ne 0 ]; then
-    cmd_log "$cmd_command: eval of expression \`$eval_expr\` failed with exit code $cmd_exit_code"
+    cmd_log "$cmd_command: eval of expression \`$__cmd_eval_expr\` failed with exit code $cmd_exit_code"
     return 4
   fi
+}
+
+function __cmd_eval_wrap {
+  # args: cmd_args...
+  # scope: __cmd_eval_expr, cmd_root, cmd_script, ...
+  # Eval user-provided expression. Everything in scope is inherited, including args (accessible as "$@").
+  eval "$__cmd_eval_expr"
 }
 
 function _cmd_log_script {
@@ -149,10 +156,11 @@ function _cmd_log_script {
 }
 
 function cmd_eval_logged {
-  # args: eval_expr, path_from_root, cmd_args...
-  local eval_expr="${1:-''}" # default to *quoted* empty string if it was empty or unset
+  # args: __cmd_eval_expr, path_from_root, cmd_args...
+  local __cmd_eval_expr="${1:-''}" # default to *quoted* empty string if it was empty or unset
   if shift; then
-    cmd_eval "__cmd_eval_log $(cmd_escape "$eval_expr") && $eval_expr" "$@"
+    # Prepent logging to $__cmd_eval_expr
+    cmd_eval "__cmd_eval_log $(cmd_escape "$__cmd_eval_expr") && $__cmd_eval_expr" "$@"
   else
     cmd_log "$cmd_command: no expression provided"
     return 6
@@ -161,11 +169,11 @@ function cmd_eval_logged {
 
 function __cmd_eval_log {
   # caller: cmd_eval_logged (via cmd_eval)
-  # args: eval_expr
+  # args: __cmd_eval_expr
   # scope: cmd_script?, ...
-  local eval_expr="$1"
+  local __cmd_eval_expr="$1"
   _cmd_log_script
-  cmd_log "> $eval_expr"
+  cmd_log "> $__cmd_eval_expr"
 }
 
 function cmd_list {
@@ -215,16 +223,16 @@ if [ "$#" -eq 0 ]; then
   cmd_log "Runs <root>/<command>.cmd, where <root> is a member of the set configured in env var CMD_ROOTS as ':'-separated paths."
   exit 1
 fi
-opt="$1"
+opt="$1" # TODO: __cmd_opt
 case "$opt" in
   --eval*)
     # Instead of evaluating the resolved script (cmd_script), evaluate the provided expression.
-    eval_expr=${opt#--eval=} # contains expr if it was glued using '=', otherwise $opt.
+    __cmd_eval_expr=${opt#--eval=} # contains expr if it was glued using '=', otherwise $opt.
     shift # consume '--eval', whether expr is glued or not
-    if [ "$eval_expr" = "$opt" ]; then
+    if [ "$__cmd_eval_expr" = "$opt" ]; then
       cmd_eval_logged "$@" # expr was not glued
     else
-      cmd_eval_logged "$eval_expr" "$@" # unglue expr
+      cmd_eval_logged "$__cmd_eval_expr" "$@" # unglue expr
     fi
     ;;
   --which)

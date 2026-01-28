@@ -91,17 +91,29 @@ function test_eval_quoted_unmatched {
   assertEquals 4 $?
   assertContains "$out" "unexpected EOF while looking for matching \`'"
   assertContains "$out" 'eval of expression'
-  assertContains "$out" 'failed with exit code'
+  assertContains "$out" 'failed with exit code' # code 1 in Bash 3 and 4, code 2 in Bash 5
 }
 
-function test_eval_return {
-  # Return from eval propagates immediately, bypassing custom error reporting.
-  # Whether this is desired isn't clear, but it's observable behavior, so we might as well test that the behavior is consistent across the different environments.
-  # ...and know if we break it later.
+function test_eval_return_vs_exit {
   local out
-  out=$(cmd --eval 'return 42' hello 2>/dev/null)
+  # Return from eval propagates immediately, bypassing custom error reporting.
+  out=$(cmd --eval 'return 42' hello 2>&1)
+  assertEquals 4 $?
+  assertContains "$out" 'eval of expression'
+  assertContains "$out" 'failed with exit code 42'
+  # Hard exit from eval propagates immediately, bypassing custom error reporting.
+  out=$(cmd --eval 'exit 42' hello 2>&1)
   assertEquals 42 $?
-  assertNull "$out" # prints nothing except stdout
+  assertEquals $'# [testdata/root1/hello.cmd]\n> exit 42' "$out" # process killed right away
+  # Like above, just without "hello".
+  out=$(cmd --eval 'return 42' 2>&1)
+  assertEquals 4 $?
+  assertContains "$out" 'eval of expression'
+  assertContains "$out" 'failed with exit code 42'
+  # Hard exit from eval propagates immediately, bypassing custom error reporting.
+  out=$(cmd --eval 'exit 42' 2>&1)
+  assertEquals 42 $?
+  assertEquals $'> exit 42' "$out" # process killed right away
 }
 
 function test_cannot_eval_ambiguous {
@@ -124,15 +136,23 @@ function test_eval_without_command {
 }
 
 function test_eval_can_assign_exit_code {
-  # Not necessary useful or even desired behavior, but it's observable and therefore nice to know that it's consistent over time and platforms...
   local out
   out=$(cmd --eval 'cmd_exit_code=42' 2>&1)
-  assertEquals 4 $? # error handler kicked in
+  assertEquals 4 $?
   assertContains "$out" 'cmd: eval of expression'
   assertContains "$out" 'failed with exit code 42'
-  out=$(cmd --eval 'cmd_exit_code=42; return 69' 2>/dev/null)
-  assertEquals 69 $? # error handler didn't kick in (still not exactly sure why this is)
-  assertNull "$out"
+  out=$(cmd --eval 'cmd_exit_code=42; return 69' 2>&1)
+  assertEquals 4 $?
+  assertContains "$out" 'eval of expression'
+  assertContains "$out" 'failed with exit code 69'
+}
+
+function test_eval_can_access_own_expression {
+  # Internal, unstable, but incorrigibly, externally observable due to Bash scoping.
+  local out
+  out=$(cmd --eval 'echo $__cmd_eval_expr' 2>/dev/null)
+  assertEquals 0 $?
+  assertNotNull "$out"
 }
 
 function test_cannot_eval_without_expr {
