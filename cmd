@@ -92,38 +92,21 @@ function _cmd_echo_unique_run_script {
     return 1
   fi
   if [ "${#run_scripts[@]}" -gt 1 ]; then
-    function __cmd_echo_script {
-      # scope: cmd_root, cmd_script
-      echo $cmd_script
-    }
     local scripts_joined=$(for r in "${run_scripts[@]}"; do func=__cmd_echo_script eval "$r"; done | cmd_join ', ')
-    unset __cmd_echo_script
     cmd_log "$cmd_command: ambiguous command (matched: $scripts_joined)"
     return 2
   fi
   echo "$run_scripts" # single-element-array
 }
 
+function __cmd_echo_script {
+  # caller: _cmd_echo_unique_run_script (via $run_scripts[])
+  # scope: cmd_root, cmd_script
+  echo $cmd_script
+}
+
 function cmd_eval {
   # args: eval_expr, path_from_root, cmd_args...
-  function __cmd_eval {
-    # args: cmd_args...
-    # scope: eval_expr, cmd_root, cmd_script, ...
-    if [ "${cmd_script-}" ]; then
-      # Convenience: expose $cmd_dir to script/expr in eval below.
-      local cmd_dir="$(dirname "$cmd_script")"
-    elif [[ "$eval_expr" =~ '$cmd_script'|'$cmd_dir' ]]; then
-      # Reject any expression that includes the substrings "$cmd_script" or "$cmd_dir" if it doesn't have a value.
-      cmd_log "$cmd_command: command required"
-      return 5
-    fi
-    # Eval user-provided expression. Everything in scope is inherited, including args (available as "$@").
-    local cmd_exit_code=0; eval "$eval_expr" || cmd_exit_code=$?
-    if [ "$cmd_exit_code" -ne 0 ]; then
-      cmd_log "$cmd_command: eval of expression \`$eval_expr\` failed with exit code $cmd_exit_code"
-      return 4
-    fi
-  }
   local eval_expr="$1"
   shift
   if [ "$#" -eq 0 ]; then
@@ -137,7 +120,25 @@ function cmd_eval {
     run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
     func=__cmd_eval eval "$run_script"
   fi
-  unset __cmd_eval
+}
+
+function __cmd_eval {
+  # args: cmd_args...
+  # scope: eval_expr, cmd_root, cmd_script, ...
+  if [ "${cmd_script-}" ]; then
+    # Convenience: expose $cmd_dir to script/expr in eval below.
+    local cmd_dir="$(dirname "$cmd_script")"
+  elif [[ "$eval_expr" =~ '$cmd_script'|'$cmd_dir' ]]; then
+    # Reject any expression that includes the substrings "$cmd_script" or "$cmd_dir" if it doesn't have a value.
+    cmd_log "$cmd_command: command required"
+    return 5
+  fi
+  # Eval user-provided expression. Everything in scope is inherited, including args (accessible as "$@").
+  local cmd_exit_code=0; eval "$eval_expr" || cmd_exit_code=$?
+  if [ "$cmd_exit_code" -ne 0 ]; then
+    cmd_log "$cmd_command: eval of expression \`$eval_expr\` failed with exit code $cmd_exit_code"
+    return 4
+  fi
 }
 
 function _cmd_log_script {
@@ -149,21 +150,22 @@ function _cmd_log_script {
 
 function cmd_eval_logged {
   # args: eval_expr, path_from_root, cmd_args...
-  function __cmd_eval_log {
-    # args: eval_expr
-    # scope: cmd_script?, ...
-    local eval_expr="$1"
-    _cmd_log_script
-    cmd_log "> $eval_expr"
-  }
   local eval_expr="${1:-''}" # default to *quoted* empty string if it was empty or unset
   if shift; then
     cmd_eval "__cmd_eval_log $(cmd_escape "$eval_expr") && $eval_expr" "$@"
-    unset __cmd_eval_log
   else
     cmd_log "$cmd_command: no expression provided"
     return 6
   fi
+}
+
+function __cmd_eval_log {
+  # caller: cmd_eval_logged (via cmd_eval)
+  # args: eval_expr
+  # scope: cmd_script?, ...
+  local eval_expr="$1"
+  _cmd_log_script
+  cmd_log "> $eval_expr"
 }
 
 function cmd_list {
@@ -184,22 +186,23 @@ CMD_SHELL_PROMPT_EXPANDED="${CMD_SHELL_PROMPT//?/ }$CMD_SHELL_PROMPT" # prompt r
 
 function cmd_shell {
   # args: path_from_root, cmd_args...
-  function __cmd_shell {
-    # scope: cmd_script?, ...
-    _cmd_log_script
-    local expr
-    while read -erp "$CMD_SHELL_PROMPT" expr; do
-      if [ "$expr" = '.' ]; then
-        # Shortcut for loading the command.
-        expr='source $cmd_script'
-        cmd_log "$CMD_SHELL_PROMPT_EXPANDED$expr"
-      fi
-      eval "$expr"
-    done
-  }
   # Add commented-out '$cmd_script' to activate logic in 'cmd_eval' to require it to be resolved.
   cmd_eval __cmd_shell "$@"
-  unset __cmd_shell
+}
+
+function __cmd_shell {
+  # caller: cmd_shell (via cmd_eval)
+  # scope: cmd_script?, ...
+  _cmd_log_script
+  local expr
+  while read -erp "$CMD_SHELL_PROMPT" expr; do
+    if [ "$expr" = '.' ]; then
+      # Shortcut for loading the command.
+      expr='source $cmd_script'
+      cmd_log "$CMD_SHELL_PROMPT_EXPANDED$expr"
+    fi
+    eval "$expr"
+  done
 }
 
 function cmd_run {
