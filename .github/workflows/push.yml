@@ -1,0 +1,9 @@
+name: Push
+on: [push]
+jobs:
+  build_run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Test
+        run: make test
