@@ -290,6 +290,34 @@ function test_list {
   assertEquals $'# testdata/root1\nhello\nnested/hello\n# testdata/root2\necho\nwc\n# testdata/spaced root\nincluding' "$out"
 }
 
+function test_read_existing_variable {
+  local out
+  out=$(myvar=hello cmd --eval 'cmd_var myvar; echo $myvar' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'hello' "$out"
+}
+
+function test_read_empty_variable {
+  local out
+  out=$(myvar= cmd --eval 'cmd_var myvar; echo "[$myvar]"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals '[]' "$out"
+}
+
+function test_read_prompt {
+  local out
+  out=$(echo 'typed_value' | cmd --eval 'cmd_var myvar; echo $myvar' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'typed_value' "$out"
+}
+
+function test_read_custom_prompt {
+  local out
+  out=$(echo 'val' | cmd --eval 'cmd_var myvar "Enter: "; echo $myvar' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'val' "$out"
+}
+
 # ---
 
 function oneTimeSetUp {
