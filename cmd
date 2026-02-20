@@ -53,6 +53,16 @@ function cmd_include {
   source "$cmd_script_included"
 }
 
+function cmd_var {
+  # args: var [prompt]
+  # Reads variable $var. If unset, prompts the user interactively.
+  local var="$1"
+  local prompt="${2-"$var: "}"
+  if [ -z "${!var+x}" ]; then
+    read -erp "$prompt" "$var"
+  fi
+}
+
 # RESOLVER #
 
 CMD_SUFFIX='.cmd'

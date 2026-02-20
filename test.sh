@@ -290,6 +290,26 @@ function test_list {
   assertEquals $'# testdata/root1\nhello\nnested/hello\n# testdata/root2\necho\nwc\n# testdata/spaced root\nincluding' "$out"
 }
 
+function test_cmd_var {
+  local out
+  # Existing, nonempty var.
+  out=$(myvar=hello cmd --eval 'cmd_var myvar; echo $myvar' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'hello' "$out"
+  # Existing, empty var.
+  out=$(myvar= cmd --eval 'cmd_var myvar; echo "[$myvar]"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals '[]' "$out"
+  # Value provided on stdin.
+  out=$(echo 'typed_value' | cmd --eval 'cmd_var myvar; echo $myvar' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'typed_value' "$out"
+  # ... with custom prompt.
+  out=$(echo 'val' | cmd --eval 'cmd_var myvar "Enter: "; echo $myvar' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'val' "$out"
+}
+
 # ---
 
 function oneTimeSetUp {
