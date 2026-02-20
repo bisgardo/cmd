@@ -221,6 +221,13 @@ function test_include_variable {
   assertEquals $'including.cmd (before include): cmd_script_included=\nincluded.cmd: cmd_script_included=./testdata/test_include_variable/included.cmd\nincluding.cmd (after include): cmd_script_included=' "$out"
 }
 
+function test_include_with_args {
+  local out
+  out=$(CMD_ROOTS=./testdata/test_include_with_arg ./cmd including)
+  assertEquals 0 $?
+  assertEquals $'hello world' "$out"
+}
+
 function test_which {
   local out
   out=$(cmd --which hello 2>&1)

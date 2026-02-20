@@ -49,6 +49,7 @@ function cmd_join {
 
 function cmd_include {
   local cmd_script_included="$cmd_dir/$1$CMD_SUFFIX"
+  shift
   source "$cmd_script_included"
 }
 
@@ -159,7 +160,7 @@ function cmd_eval_logged {
   # args: __cmd_eval_expr, path_from_root, cmd_args...
   local __cmd_eval_expr="${1:-''}" # default to *quoted* empty string if it was empty or unset
   if shift; then
-    # Prepent logging to $__cmd_eval_expr
+    # Prevent logging to $__cmd_eval_expr
     cmd_eval "__cmd_eval_log $(cmd_escape "$__cmd_eval_expr") && $__cmd_eval_expr" "$@"
   else
     cmd_log "$cmd_command: no expression provided"
