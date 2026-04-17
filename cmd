@@ -195,7 +195,6 @@ CMD_SHELL_PROMPT_EXPANDED="${CMD_SHELL_PROMPT//?/ }$CMD_SHELL_PROMPT" # prompt r
 
 function cmd_shell {
   # args: path_from_root, cmd_args...
-  # Add commented-out '$cmd_script' to activate logic in 'cmd_eval' to require it to be resolved.
   cmd_eval __cmd_shell "$@"
 }
 
