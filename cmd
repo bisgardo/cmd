@@ -62,7 +62,6 @@ function _cmd_echo_root_run_script {
   local root="$1"
   local path_from_root="$2"
   if shift 2; then
-    # TODO: Accept that cmd_path may leave root dir or prevent it. Add a test either way.
     local cmd_path="$root/$path_from_root$CMD_SUFFIX"
     if [ -e "$cmd_path" ]; then
       # Outputs script of the form `cmd_root=... cmd_script=root/p1/p2.cmd $func [args]`.
