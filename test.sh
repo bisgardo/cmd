@@ -253,6 +253,9 @@ function test_shell {
   out=$((echo '.') | cmd --shell hello 2>&1)
   assertEquals 0 $?
   assertContains "$out" 'Hello, world!'
+  out=$((echo '.') | cmd --shell echo a b c 2>&1)
+  assertEquals 0 $?
+  assertContains "$out" 'a b c'
   # Evaluate in shell: print cmd, then include other command by relative path.
   out=$((echo 'echo $cmd_script'; echo 'cmd_include nested/hello') | cmd --shell hello 2>/dev/null)
   assertEquals 0 $?
@@ -275,6 +278,12 @@ function test_shell_without_command {
   out=$((echo 'cmd_script=testdata/root1/hello.cmd'; echo '.') | cmd --shell 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'Hello, world!' "$out"
+  out=$(cmd --shell -- 'World,' 'hello!' <<< 'echo "$@"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'World, hello!' "$out"
+  out=$(cmd --shell -- 'World, hello!' <<< 'echo "$1"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'World, hello!' "$out"
 }
 
 function test_shell_in_shell {

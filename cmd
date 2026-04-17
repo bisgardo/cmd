@@ -135,7 +135,8 @@ function __cmd_eval {
     return 5
   fi
   # Wrapping 'eval' in __cmd_eval_wrap to let 'return' stmts in $__cmd_eval_expr make that func return instead of this one.
-  local cmd_exit_code=0; __cmd_eval_wrap "$@" || cmd_exit_code=$?
+  local cmd_exit_code=0
+  __cmd_eval_wrap "$@" || cmd_exit_code=$?
   if [ "$cmd_exit_code" -ne 0 ]; then
     cmd_log "$cmd_command: eval of expression \`$__cmd_eval_expr\` failed with exit code $cmd_exit_code"
     return 4
@@ -195,7 +196,8 @@ CMD_SHELL_PROMPT_EXPANDED="${CMD_SHELL_PROMPT//?/ }$CMD_SHELL_PROMPT" # prompt r
 
 function cmd_shell {
   # args: path_from_root, cmd_args...
-  cmd_eval __cmd_shell "$@"
+  # __cmd_eval_wrap doesn't automatically propagate args to commands.
+  cmd_eval '__cmd_shell "$@"' "$@"
 }
 
 function __cmd_shell {
