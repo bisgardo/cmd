@@ -250,6 +250,9 @@ function test_cat {
 
 function test_shell {
   local out
+  out=$((echo '.') | cmd --shell hello 2>&1)
+  assertEquals 0 $?
+  assertContains "$out" 'Hello, world!'
   # Evaluate in shell: print cmd, then include other command by relative path.
   out=$((echo 'echo $cmd_script'; echo 'cmd_include nested/hello') | cmd --shell hello 2>/dev/null)
   assertEquals 0 $?
