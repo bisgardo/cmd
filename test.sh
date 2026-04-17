@@ -318,7 +318,7 @@ function test_escaping_paths {
   assertEquals 0 $?
   assertEquals 'Escaped!' "$out"
   # Absolute paths don't...
-  out=$(CMD_ROOTS=testdata/root1 ./cmd $PWD/testdata/root2/echo 2>&1)
+  out=$(CMD_ROOTS=testdata/root1 ./cmd "$PWD/testdata/root2/echo" 2>&1)
   assertEquals 1 $?
   assertEquals "cmd: command \"$PWD/testdata/root2/echo\" not found" "$out"
   # ... because absolute paths are actually relative.
