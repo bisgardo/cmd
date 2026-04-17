@@ -84,11 +84,19 @@ function _cmd_echo_run_scripts {
 function _cmd_echo_unique_run_script {
   # args: path_from_root, cmd_args...
   # input: sequence of roots (consumed by '_cmd_echo_run_scripts').
+  local path_from_root="$1"
+  # Require path to be "simple" (relative and strictly descending) as we're conceptually navigating a command tree, not the filesystem.
+  case "/$path_from_root/" in
+    *//*|*/./*|*/../*)
+      cmd_log "$cmd_command: invalid command path \"$path_from_root\""
+      return 7
+      ;;
+  esac
   local run_scripts=()
   local r
   while read -r r; do run_scripts+=("$r"); done <<< "$(_cmd_echo_run_scripts "$@")"
   if [ -z "$run_scripts" ]; then
-    cmd_log "$cmd_command: command \"$1\" not found"
+    cmd_log "$cmd_command: command \"$path_from_root\" not found"
     return 1
   fi
   if [ "${#run_scripts[@]}" -gt 1 ]; then

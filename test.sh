@@ -302,32 +302,35 @@ function test_list {
   assertEquals $'# testdata/root1\nhello\nnested/hello\n# testdata/root2\necho\nwc\n# testdata/spaced root\nincluding' "$out"
 }
 
-function test_escaping_paths {
-  # Demonstrate that we can escape the root using relative paths (and that absolute paths are actually relative).
-  # This test only exists to document the behavior and avoid changing it without noticing.
-  # The behavior is fine from a security perspective:
-  # Any restriction on the path (other than the existing one that we only run '*.cmd' files)
-  # is trivially bypassed by explicitly setting CMD_ROOTS.
-  # Semantically, it's not great though, as the "path" isn't actually meant to be a filesystem path,
-  # but a path in the tree of available commands (which is also what 'cmd --list' shows).
-  # For this reason, we're likely to change the behavior to prevent the "accidental" implementation detail
-  # that it's a filesystem path from leaking through and break the abstraction.
+function test_invalid_paths_rejected {
+  # While the command path is mapped to the filesystem, it should be understood conceptually as the path of the command
+  # in the tree of all available commands (which is also what 'cmd --list' shows).
+  # To enforce this abstraction, we only allow "simple" paths, that is, strictly descending relative paths.
+  # Note that this isn't a security measure - it's entirely about leaky abstractions.
   local out
-  # Relative paths work.
-  out=$(CMD_ROOTS=testdata/root1 ./cmd ../root2/echo 'Escaped!' 2>&1)
-  assertEquals 0 $?
-  assertEquals 'Escaped!' "$out"
-  # Absolute paths don't...
-  out=$(CMD_ROOTS=testdata/root1 ./cmd "$PWD/testdata/root2/echo" 2>&1)
-  assertEquals 1 $?
-  assertEquals "cmd: command \"$PWD/testdata/root2/echo\" not found" "$out"
-  # ... because absolute paths are actually relative.
-  out=$(CMD_ROOTS=testdata/root1 ./cmd /../root2/echo 'Escaped!' 2>&1)
-  assertEquals 0 $?
-  assertEquals 'Escaped!' "$out"
-  out=$(CMD_ROOTS=testdata/root1 ./cmd /hello 2>&1)
-  assertEquals 0 $?
-  assertEquals 'Hello, world!' "$out"
+  # Path that could escape root.
+  out=$(CMD_ROOTS=testdata/root1 ./cmd ../root2/echo 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "../root2/echo"' "$out"
+  # Paths that use '.', '..', or empty components.
+  out=$(cmd ./hello 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "./hello"' "$out"
+  out=$(cmd /hello 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "/hello"' "$out"
+  out=$(cmd hello/ 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "hello/"' "$out"
+  out=$(cmd hello/. 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "hello/."' "$out"
+  out=$(cmd nested//hello 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "nested//hello"' "$out"
+  out=$(cmd nested/./hello 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "nested/./hello"' "$out"
 }
 
 # ---
