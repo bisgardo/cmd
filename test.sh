@@ -215,7 +215,7 @@ function test_including {
 
 function test_include_variable {
   local out
-  # local variable 'cmd_script_included' leaks from 'cmd_include' into included script, but isn't in scope after include returns.
+  # Local variable 'cmd_script_included' leaks from 'cmd_include' into included script, but isn't in scope after include returns.
   out=$(CMD_ROOTS=./testdata/test_include_variable ./cmd including)
   assertEquals 0 $?
   assertEquals $'including.cmd (before include): cmd_script_included=\nincluded.cmd: cmd_script_included=./testdata/test_include_variable/included.cmd\nincluding.cmd (after include): cmd_script_included=' "$out"
@@ -331,6 +331,12 @@ function test_invalid_paths_rejected {
   out=$(cmd nested/./hello 2>&1)
   assertEquals 7 $?
   assertEquals 'cmd: invalid command path "nested/./hello"' "$out"
+
+  # 'cmd_include' failure is caught and turns into error code 4.
+  out=$(cmd --eval='cmd_include /a' 2>&1)
+  assertEquals 4 $?
+  assertContains "$out" 'cmd: invalid include path "/a"'
+  assertContains "$out" 'failed with exit code 7'
 }
 
 # ---

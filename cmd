@@ -48,8 +48,20 @@ function cmd_join {
 }
 
 function cmd_include {
-  local cmd_script_included="$cmd_dir/$1$CMD_SUFFIX"
+  local path_from_including="$1"
+  # Reject path components '' and '.' (includes absolute paths).
+  # This is the same check as in _cmd_echo_unique_run_script except that we don't reject '..'.
+  case "/$path_from_including/" in
+    *//*|*/./*)
+      cmd_log "$cmd_command: invalid include path \"$path_from_including\""
+      return 7
+      ;;
+  esac
+  local cmd_script_included="$cmd_dir/$path_from_including$CMD_SUFFIX"
   shift
+  # Note that both 'path_from_including' and 'cmd_script_include' leak into the included file.
+  # Though not necessarily particularly useful, they could be handy for detecting that the file is being included
+  # and/or infer where it was included from (e.g. for debugging).
   source "$cmd_script_included"
 }
 
@@ -86,6 +98,7 @@ function _cmd_echo_unique_run_script {
   # input: sequence of roots (consumed by '_cmd_echo_run_scripts').
   local path_from_root="$1"
   # Require path to be "simple" (relative and strictly descending) as we're conceptually navigating a command tree, not the filesystem.
+  # This is the same check as in cmd_include except that we also reject '..'.
   case "/$path_from_root/" in
     *//*|*/./*|*/../*)
       cmd_log "$cmd_command: invalid command path \"$path_from_root\""
