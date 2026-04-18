@@ -220,43 +220,6 @@ function __cmd_eval_log {
   cmd_log "> $__cmd_eval_expr"
 }
 
-function cmd_list {
-  cmd_split ':' <<< "$CMD_ROOTS" |
-    while read -r root; do
-      cmd_log "# $root"
-      find "${root}" -name "*$CMD_SUFFIX" |
-       while read -r script; do
-         local script_without_root="${script#$root/}"
-         echo "${script_without_root%$CMD_SUFFIX}"
-       done |
-       sort
-    done
-}
-
-CMD_SHELL_PROMPT='> '
-CMD_SHELL_PROMPT_EXPANDED="${CMD_SHELL_PROMPT//?/ }$CMD_SHELL_PROMPT" # prompt replaced by spaces followed by prompt
-
-function cmd_shell {
-  # args: path_from_root, cmd_args...
-  # __cmd_eval_wrap doesn't automatically propagate args to commands.
-  cmd_eval '__cmd_shell "$@"' "$@"
-}
-
-function __cmd_shell {
-  # caller: cmd_shell (via cmd_eval)
-  # scope: cmd_script?, ...
-  _cmd_log_script
-  local expr
-  while read -erp "$CMD_SHELL_PROMPT" expr; do
-    if [ "$expr" = '.' ]; then
-      # Shortcut for loading the command.
-      expr='source $cmd_script'
-      cmd_log "$CMD_SHELL_PROMPT_EXPANDED$expr"
-    fi
-    eval "$expr"
-  done
-}
-
 function cmd_run {
   cmd_eval 'source "$cmd_script"' "$@"
 }
@@ -278,25 +241,6 @@ case "$__cmd_opt" in
     else
       cmd_eval_logged "$__cmd_eval_expr" "$@" # unglue expr
     fi
-    ;;
-  --which)
-    shift
-    cmd_eval 'echo "$cmd_script"' "$@"
-    ;;
-  --cat)
-    shift
-    cmd_eval 'cat "$cmd_script"' "$@"
-    ;;
-  --edit)
-    shift
-    cmd_eval 'vim "$cmd_script"' "$@"
-    ;;
-  --shell)
-    shift
-    cmd_shell "$@"
-    ;;
-  --list)
-    cmd_list
     ;;
   *)
     cmd_run "$@"

@@ -1,5 +1,5 @@
 function cmd {
-  CMD_ROOTS='testdata/root1:testdata/root2:testdata/spaced root' ./cmd "$@"
+  CMD_ROOTS='std:testdata/root1:testdata/root2:testdata/spaced root' ./cmd "$@"
 }
 
 function test_can_run {
@@ -281,8 +281,9 @@ function test_which {
   assertEquals 0 $?
   assertEquals 'testdata/root1/hello.cmd' "$out"
   out=$(cmd --which 2>&1)
-  assertEquals 5 $?
-  assertEquals 'cmd: command required' "$out"
+  assertEquals 4 $?
+  assertContains "$out" 'cmd: command required'
+  assertContains "$out" 'failed with exit code 5'
 }
 
 function test_cat {
@@ -291,8 +292,9 @@ function test_cat {
   assertEquals 0 $?
   assertEquals "echo 'Hello, nested world!'" "$out"
   out=$(cmd --cat 2>&1)
-  assertEquals 5 $?
-  assertEquals 'cmd: command required' "$out"
+  assertEquals 4 $?
+  assertContains "$out" 'cmd: command required'
+  assertContains "$out" 'failed with exit code 5'
 }
 
 function test_shell {
@@ -319,9 +321,9 @@ function test_shell {
 
 function test_shell_without_command {
   local out
-  out=$((echo '.') | cmd --shell 2>&1)
-  assertEquals 1 $?
-  assertContains "$out" 'cmd_script: unbound variable'
+  out=$(echo '.' | cmd --shell 2>&1)
+  assertEquals 0 $?
+  assertEquals 'No script in context' "$out"
   out=$((echo 'cmd_script=testdata/root1/hello.cmd'; echo '.') | cmd --shell 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'Hello, world!' "$out"
@@ -346,7 +348,7 @@ function test_list {
   local out
   out=$(cmd --list 2>&1)
   assertEquals 0 $?
-  assertEquals $'# testdata/root1\nhello\nnested/hello\n# testdata/root2\necho\nwc\n# testdata/spaced root\nincluding' "$out"
+  assertEquals $'# std\n--cat\n--edit\n--list\n--shell\n--which\n# testdata/root1\nhello\nnested/hello\n# testdata/root2\necho\nwc\n# testdata/spaced root\nincluding' "$out"
 }
 
 function test_invalid_paths_rejected {
