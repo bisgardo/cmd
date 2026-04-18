@@ -48,8 +48,20 @@ function cmd_join {
 }
 
 function cmd_include {
-  local cmd_script_included="$cmd_dir/$1$CMD_SUFFIX"
+  local path_from_including="$1"
+  # Reject path components '' and '.' (includes absolute paths).
+  # This is the same check as in _cmd_echo_unique_run_script except that we don't reject '..'.
+  case "/$path_from_including/" in
+    *//*|*/./*)
+      cmd_log "$cmd_command: invalid include path \"$path_from_including\""
+      return 7
+      ;;
+  esac
+  local cmd_script_included="$cmd_dir/$path_from_including$CMD_SUFFIX"
   shift
+  # Note that both 'path_from_including' and 'cmd_script_include' leak into the included file.
+  # Though not necessarily particularly useful, they could be handy for detecting that the file is being included
+  # and/or infer where it was included from (e.g. for debugging).
   source "$cmd_script_included"
 }
 
@@ -72,7 +84,6 @@ function _cmd_echo_root_run_script {
   local root="$1"
   local path_from_root="$2"
   if shift 2; then
-    # TODO: Accept that cmd_path may leave root dir or prevent it. Add a test either way.
     local cmd_path="$root/$path_from_root$CMD_SUFFIX"
     if [ -e "$cmd_path" ]; then
       # Outputs script of the form `cmd_root=... cmd_script=root/p1/p2.cmd $func [args]`.
@@ -95,11 +106,20 @@ function _cmd_echo_run_scripts {
 function _cmd_echo_unique_run_script {
   # args: path_from_root, cmd_args...
   # input: sequence of roots (consumed by '_cmd_echo_run_scripts').
+  local path_from_root="$1"
+  # Require path to be "simple" (relative and strictly descending) as we're conceptually navigating a command tree, not the filesystem.
+  # This is the same check as in cmd_include except that we also reject '..'.
+  case "/$path_from_root/" in
+    *//*|*/./*|*/../*)
+      cmd_log "$cmd_command: invalid command path \"$path_from_root\""
+      return 7
+      ;;
+  esac
   local run_scripts=()
   local r
   while read -r r; do run_scripts+=("$r"); done <<< "$(_cmd_echo_run_scripts "$@")"
   if [ -z "$run_scripts" ]; then
-    cmd_log "$cmd_command: command \"$1\" not found"
+    cmd_log "$cmd_command: command \"$path_from_root\" not found"
     return 1
   fi
   if [ "${#run_scripts[@]}" -gt 1 ]; then
@@ -145,7 +165,8 @@ function __cmd_eval {
     return 5
   fi
   # Wrapping 'eval' in __cmd_eval_wrap to let 'return' stmts in $__cmd_eval_expr make that func return instead of this one.
-  local cmd_exit_code=0; __cmd_eval_wrap "$@" || cmd_exit_code=$?
+  local cmd_exit_code=0
+  __cmd_eval_wrap "$@" || cmd_exit_code=$?
   if [ "$cmd_exit_code" -ne 0 ]; then
     cmd_log "$cmd_command: eval of expression \`$__cmd_eval_expr\` failed with exit code $cmd_exit_code"
     return 4
@@ -205,8 +226,8 @@ CMD_SHELL_PROMPT_EXPANDED="${CMD_SHELL_PROMPT//?/ }$CMD_SHELL_PROMPT" # prompt r
 
 function cmd_shell {
   # args: path_from_root, cmd_args...
-  # Add commented-out '$cmd_script' to activate logic in 'cmd_eval' to require it to be resolved.
-  cmd_eval __cmd_shell "$@"
+  # __cmd_eval_wrap doesn't automatically propagate args to commands.
+  cmd_eval '__cmd_shell "$@"' "$@"
 }
 
 function __cmd_shell {

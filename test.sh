@@ -215,7 +215,7 @@ function test_including {
 
 function test_include_variable {
   local out
-  # local variable 'cmd_script_included' leaks from 'cmd_include' into included script, but isn't in scope after include returns.
+  # Local variable 'cmd_script_included' leaks from 'cmd_include' into included script, but isn't in scope after include returns.
   out=$(CMD_ROOTS=./testdata/test_include_variable ./cmd including)
   assertEquals 0 $?
   assertEquals $'including.cmd (before include): cmd_script_included=\nincluded.cmd: cmd_script_included=./testdata/test_include_variable/included.cmd\nincluding.cmd (after include): cmd_script_included=' "$out"
@@ -270,6 +270,12 @@ function test_cat {
 
 function test_shell {
   local out
+  out=$((echo '.') | cmd --shell hello 2>&1)
+  assertEquals 0 $?
+  assertContains "$out" 'Hello, world!'
+  out=$((echo '.') | cmd --shell echo a b c 2>&1)
+  assertEquals 0 $?
+  assertContains "$out" 'a b c'
   # Evaluate in shell: print cmd, then include other command by relative path.
   out=$((echo 'echo $cmd_script'; echo 'cmd_include nested/hello') | cmd --shell hello 2>/dev/null)
   assertEquals 0 $?
@@ -292,6 +298,12 @@ function test_shell_without_command {
   out=$((echo 'cmd_script=testdata/root1/hello.cmd'; echo '.') | cmd --shell 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'Hello, world!' "$out"
+  out=$(cmd --shell -- 'World,' 'hello!' <<< 'echo "$@"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'World, hello!' "$out"
+  out=$(cmd --shell -- 'World, hello!' <<< 'echo "$1"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'World, hello!' "$out"
 }
 
 function test_shell_in_shell {
@@ -308,6 +320,43 @@ function test_list {
   out=$(cmd --list 2>&1)
   assertEquals 0 $?
   assertEquals $'# testdata/root1\nhello\nnested/hello\n# testdata/root2\necho\nwc\n# testdata/spaced root\nincluding' "$out"
+}
+
+function test_invalid_paths_rejected {
+  # While the command path is mapped to the filesystem, it should be understood conceptually as the path of the command
+  # in the tree of all available commands (which is also what 'cmd --list' shows).
+  # To enforce this abstraction, we only allow "simple" paths, that is, strictly descending relative paths.
+  # Note that this isn't a security measure - it's entirely about leaky abstractions.
+  local out
+  # Path that could escape root.
+  out=$(CMD_ROOTS=testdata/root1 ./cmd ../root2/echo 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "../root2/echo"' "$out"
+  # Paths that use '.', '..', or empty components.
+  out=$(cmd ./hello 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "./hello"' "$out"
+  out=$(cmd /hello 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "/hello"' "$out"
+  out=$(cmd hello/ 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "hello/"' "$out"
+  out=$(cmd hello/. 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "hello/."' "$out"
+  out=$(cmd nested//hello 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "nested//hello"' "$out"
+  out=$(cmd nested/./hello 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path "nested/./hello"' "$out"
+
+  # 'cmd_include' failure is caught and turns into error code 4.
+  out=$(cmd --eval='cmd_include /a' 2>&1)
+  assertEquals 4 $?
+  assertContains "$out" 'cmd: invalid include path "/a"'
+  assertContains "$out" 'failed with exit code 7'
 }
 
 # ---

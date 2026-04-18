@@ -61,3 +61,8 @@ runs the tests named `test1` and `test2` locally and against all environments.
 
 To run against only the Bash 3, for example, use target `test-bash3` instead of `test`.
 Make also supports running an arbitrary list of targets if for some reason one wants to test against a subset of environments.
+
+## Security
+
+This tool simply adds a small convenience layer over pure shell scripts, without any additional safety measures.
+It's provided as-is, with no warranty and no liability. Use at your own risk and only run scripts that you trust completely.
