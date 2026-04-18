@@ -319,9 +319,9 @@ function test_shell {
 
 function test_shell_without_command {
   local out
-  out=$((echo '.') | cmd --shell 2>&1)
-  assertEquals 1 $?
-  assertContains "$out" 'cmd_script: unbound variable'
+  out=$(echo '.' | cmd --shell 2>&1)
+  assertEquals 0 $?
+  assertEquals 'cmd: no script in scope' "$out"
   out=$((echo 'cmd_script=testdata/root1/hello.cmd'; echo '.') | cmd --shell 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'Hello, world!' "$out"

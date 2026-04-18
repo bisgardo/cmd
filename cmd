@@ -177,6 +177,7 @@ function __cmd_eval {
     return 5
   fi
   # Wrapping 'eval' in __cmd_eval_wrap to let 'return' stmts in $__cmd_eval_expr make that func return instead of this one.
+  # Note that `||` disables errexit (-e) within the evaluated expression.
   local cmd_exit_code=0
   __cmd_eval_wrap "$@" || cmd_exit_code=$?
   if [ "$cmd_exit_code" -ne 0 ]; then
@@ -249,10 +250,17 @@ function __cmd_shell {
   local expr
   while read -erp "$CMD_SHELL_PROMPT" expr; do
     if [ "$expr" = '.' ]; then
-      # Shortcut for loading the command.
-      expr='source $cmd_script'
-      cmd_log "$CMD_SHELL_PROMPT_EXPANDED$expr"
+      if [ "${cmd_script-}" ]; then
+        # Shortcut for loading the command.
+        expr='source $cmd_script'
+        cmd_log "$CMD_SHELL_PROMPT_EXPANDED$expr"
+      else
+        cmd_log "$cmd_command: no script in scope"
+        continue
+      fi
     fi
+    # Although `set -e` is set globally, eval failures don't crash the script here for reasons explained in __cmd_eval.
+    # Reading nonexistent variables still do - we should probably fix that at some point.
     eval "$expr"
   done
 }
