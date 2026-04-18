@@ -255,13 +255,13 @@ if [ "$#" -eq 0 ]; then
   cmd_log "Runs <root>/<command>.cmd, where <root> is a member of the set configured in env var CMD_ROOTS as ':'-separated paths."
   exit 1
 fi
-opt="$1" # TODO: __cmd_opt
-case "$opt" in
+__cmd_opt="$1"
+case "$__cmd_opt" in
   --eval*)
     # Instead of evaluating the resolved script (cmd_script), evaluate the provided expression.
-    __cmd_eval_expr=${opt#--eval=} # contains expr if it was glued using '=', otherwise $opt.
+    __cmd_eval_expr=${__cmd_opt#--eval=} # contains expr if it was glued using '=', otherwise $__cmd_opt.
     shift # consume '--eval', whether expr is glued or not
-    if [ "$__cmd_eval_expr" = "$opt" ]; then
+    if [ "$__cmd_eval_expr" = "$__cmd_opt" ]; then
       cmd_eval_logged "$@" # expr was not glued
     else
       cmd_eval_logged "$__cmd_eval_expr" "$@" # unglue expr
