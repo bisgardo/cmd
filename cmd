@@ -99,6 +99,9 @@ function _cmd_echo_root_run_script {
     local cmd_path="$root/$path_from_root$CMD_SUFFIX"
     if [ -e "$cmd_path" ]; then
       # Outputs script of the form `cmd_root=... cmd_script=root/p1/p2.cmd $func [args]`.
+      # TODO: Rename cmd_script to cmd_file and also set cmd_dir which might get set even if file isn't found.
+      #       There just isn't anything to run then.
+      #       But as long is cmd_dir exists, --new can still run. Maybe it can be an array then (which the user selects in)
       echo "cmd_root=$(cmd_escape "$root") cmd_script=$(cmd_escape "$cmd_path") \$func $(cmd_escape "$@")"
     fi
   fi
@@ -168,9 +171,12 @@ function cmd_eval {
 function __cmd_eval {
   # args: cmd_args...
   # scope: __cmd_eval_expr, cmd_root, cmd_script, ...
+  local __cmd_eval_expr_inject=
   if [ "${cmd_script-}" ]; then
     # Convenience: expose $cmd_dir to script/expr in eval below.
-    local cmd_dir="$(dirname "$cmd_script")"
+    # Can't just prepend to __cmd_eval_expr because that might be invalid syntax.
+    # TODO: Should set cmd_dir in
+    __cmd_eval_expr_inject="cmd_dir=$(cmd_escape "$(dirname "$cmd_script")")"
   elif [[ "$__cmd_eval_expr" =~ '$cmd_script'|'$cmd_dir' ]]; then
     # Reject any expression that includes the substrings "$cmd_script" or "$cmd_dir" if it doesn't have a value.
     cmd_log "$cmd_command: command required"
@@ -179,7 +185,7 @@ function __cmd_eval {
   # Wrapping 'eval' in __cmd_eval_wrap to let 'return' stmts in $__cmd_eval_expr make that func return instead of this one.
   # Note that `||` disables errexit (-e) within the evaluated expression.
   local cmd_exit_code=0
-  __cmd_eval_wrap "$@" || cmd_exit_code=$?
+  eval "$__cmd_eval_expr_inject __cmd_eval_wrap $(cmd_escape "$@")" || cmd_exit_code=$?
   if [ "$cmd_exit_code" -ne 0 ]; then
     cmd_log "$cmd_command: eval of expression \`$__cmd_eval_expr\` failed with exit code $cmd_exit_code"
     return 4

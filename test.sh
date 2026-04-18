@@ -386,6 +386,23 @@ function test_invalid_paths_rejected {
   assertContains "$out" 'failed with exit code 7'
 }
 
+function test_eval_bash {
+  # Just another thing you can do.
+  local out
+  out=$(echo 'echo "Hello from inner Bash!"' | cmd --eval bash 2>&1)
+  assertEquals 0 $?
+  assertEquals $'> bash\nHello from inner Bash!' "$out"
+  out=$(echo 'echo "Hello, \"$cmd_script\" from inner Bash!"' | cmd --eval 'echo "$cmd_script"; bash' hello 2>/dev/null)
+  assertEquals 0 $?
+  # cmd_script is passed via prefix assignment (cmd_script=... $func), so it IS in subprocess environment.
+  assertEquals $'testdata/root1/hello.cmd\nHello, "testdata/root1/hello.cmd" from inner Bash!' "$out"
+  #  # cmd_dir is a local variable, so it is NOT passed to subprocess environment - proving bash runs in subprocess.
+  #  out=$(echo 'echo "cmd_dir=$cmd_dir"' | cmd --eval 'echo "cmd_dir=$cmd_dir"; bash' hello 2>/dev/null)
+  #  assertEquals 0 $?
+  #  # Parent has cmd_dir, subprocess does not
+  #  assertEquals $'cmd_dir=testdata/root1\ncmd_dir=' "$out"
+}
+
 # ---
 
 function oneTimeSetUp {
