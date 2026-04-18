@@ -82,7 +82,7 @@ function cmd_ask {
 function cmd_confirm {
   # args: [prompt]
   # Offer the user the chance to interrupt the script (with SIGINT) unless CMD_CONFIRM is set.
-  # Any input from the user is propagated.
+  # Any user intput is discarded.
   local prompt="${1-"Press ENTER to continue or ^C to cancel"}"
   cmd_ask CMD_CONFIRM "$prompt" >/dev/null
 }
