@@ -109,6 +109,7 @@ function _cmd_echo_root_run_script {
 function _cmd_echo_run_scripts {
   # args: path_from_root, cmd_args...
   # input: sequence of roots (consumed by 'cmd_split').
+  local root
   cmd_split ':' |
     while read -r root; do
       _cmd_echo_root_run_script "$root" "$@"
@@ -135,14 +136,14 @@ function _cmd_echo_unique_run_script {
     return 1
   fi
   if [ "${#run_scripts[@]}" -gt 1 ]; then
-    local scripts_joined=$(for r in "${run_scripts[@]}"; do func=__cmd_echo_script eval "$r"; done | cmd_join ', ')
-    cmd_log "$cmd_command: ambiguous command (matched: $scripts_joined)"
+    local files_joined=$(for r in "${run_scripts[@]}"; do func=__cmd_echo_file eval "$r"; done | cmd_join ', ')
+    cmd_log "$cmd_command: ambiguous command (matched: $files_joined)"
     return 2
   fi
   echo "$run_scripts" # single-element-array
 }
 
-function __cmd_echo_script {
+function __cmd_echo_file {
   # caller: _cmd_echo_unique_run_script (via $run_scripts[])
   # scope: cmd_root, cmd_file
   echo $cmd_file
@@ -193,7 +194,7 @@ function __cmd_eval_wrap {
   eval "$__cmd_eval_expr"
 }
 
-function _cmd_log_script {
+function _cmd_log_file {
   # scope: cmd_file?
   if [ "${cmd_file-}" ]; then
     cmd_log "# [$cmd_file]"
@@ -217,18 +218,19 @@ function __cmd_eval_log {
   # args: __cmd_eval_expr
   # scope: cmd_file?, ...
   local __cmd_eval_expr="$1"
-  _cmd_log_script
+  _cmd_log_file
   cmd_log "> $__cmd_eval_expr"
 }
 
 function cmd_list {
+  local root file
   cmd_split ':' <<< "$CMD_ROOTS" |
     while read -r root; do
       cmd_log "# $root"
       find "${root}" -name "*$CMD_SUFFIX" |
-       while read -r script; do
-         local script_without_root="${script#$root/}"
-         echo "${script_without_root%$CMD_SUFFIX}"
+       while read -r file; do
+         local file_without_root="${file#$root/}"
+         echo "${file_without_root%$CMD_SUFFIX}"
        done |
        sort
     done
@@ -246,7 +248,7 @@ function cmd_shell {
 function __cmd_shell {
   # caller: cmd_shell (via cmd_eval)
   # scope: cmd_file?, ...
-  _cmd_log_script
+  _cmd_log_file
   local expr
   while read -erp "$CMD_SHELL_PROMPT" expr; do
     if [ "$expr" = '.' ]; then
@@ -255,7 +257,7 @@ function __cmd_shell {
         expr='source $cmd_file'
         cmd_log "$CMD_SHELL_PROMPT_EXPANDED$expr"
       else
-        cmd_log "$cmd_command: no script in scope"
+        cmd_log "$cmd_command: no command file in scope"
         continue
       fi
     fi
@@ -278,7 +280,8 @@ fi
 __cmd_opt="$1"
 case "$__cmd_opt" in
   --eval*)
-    # Instead of evaluating the resolved script (cmd_file), evaluate the provided expression.
+    # Evaluate the provided expression.
+    # If a command path is provided, the resolved file is exposed to the expression as 'cmd_file', but not sourced automatically.
     __cmd_eval_expr=${__cmd_opt#--eval=} # contains expr if it was glued using '=', otherwise $__cmd_opt.
     shift # consume '--eval', whether expr is glued or not
     if [ "$__cmd_eval_expr" = "$__cmd_opt" ]; then
