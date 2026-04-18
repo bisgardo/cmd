@@ -48,18 +48,18 @@ function cmd_join {
 }
 
 function cmd_include {
-  local path_from_including="$1"
+  local cmd_include_path="$1"
   # Reject path components '' and '.' (includes absolute paths).
   # This is the same check as in _cmd_echo_unique_run_script except that we don't reject '..'.
-  case "/$path_from_including/" in
+  case "/$cmd_include_path/" in
     *//*|*/./*)
-      cmd_log "$cmd_command: invalid include path \"$path_from_including\""
+      cmd_log "$cmd_command: invalid include path \"$cmd_include_path\""
       return 7
       ;;
   esac
-  local cmd_included_file="$cmd_dir/$path_from_including$CMD_SUFFIX"
+  local cmd_included_file="$cmd_dir/$cmd_include_path$CMD_SUFFIX"
   shift
-  # Note that both 'path_from_including' and 'cmd_included_file' leak into the included file.
+  # Note that both 'cmd_include_path' and 'cmd_included_file' leak into the included file.
   # Though not necessarily particularly useful, they could be handy for detecting that the file is being included
   # and/or infer where it was included from (e.g. for debugging).
   source "$cmd_included_file"
@@ -96,11 +96,7 @@ function _cmd_echo_root_run_script {
   local root="$1"
   local path_from_root="$2"
   if shift 2; then
-    local cmd_file="$root/$path_from_root$CMD_SUFFIX"
-    if [ -e "$cmd_file" ]; then
-      # Outputs script of the form `cmd_root=... cmd_file=root/p1/p2.cmd $func [args]`.
-      echo "cmd_root=$(cmd_escape "$root") cmd_file=$(cmd_escape "$cmd_file") \$func $(cmd_escape "$@")"
-    fi
+    echo "cmd_root=$(cmd_escape "$root") cmd_file=$(cmd_escape "$root/$path_from_root$CMD_SUFFIX") \$func $(cmd_escape "$@")"
   fi
 }
 
@@ -109,6 +105,19 @@ function _cmd_echo_root_run_script {
 function _cmd_echo_run_scripts {
   # args: path_from_root, cmd_args...
   # input: sequence of roots (consumed by 'cmd_split').
+  local path_from_root="$1"
+  if [ -z "$path_from_root" ]; then
+    cmd_log "$cmd_command: command required"
+    return 5
+  fi
+  # Require path to be "simple" (relative and strictly descending) as we're conceptually navigating a command tree, not the filesystem.
+  # This is the same check as in cmd_include except that we also reject '..'.
+  case "/$path_from_root/" in
+    *//*|*/./*|*/../*)
+      cmd_log "$cmd_command: invalid command path \"$path_from_root\""
+      return 7
+      ;;
+  esac
   local root
   cmd_split ':' |
     while read -r root; do
@@ -120,23 +129,18 @@ function _cmd_echo_unique_run_script {
   # args: path_from_root, cmd_args...
   # input: sequence of roots (consumed by '_cmd_echo_run_scripts').
   local path_from_root="$1"
-  # Require path to be "simple" (relative and strictly descending) as we're conceptually navigating a command tree, not the filesystem.
-  # This is the same check as in cmd_include except that we also reject '..'.
-  case "/$path_from_root/" in
-    *//*|*/./*|*/../*)
-      cmd_log "$cmd_command: invalid command path \"$path_from_root\""
-      return 7
-      ;;
-  esac
-  local run_scripts=()
-  local r
-  while read -r r; do run_scripts+=("$r"); done <<< "$(_cmd_echo_run_scripts "$@")"
-  if [ -z "$run_scripts" ]; then
+  local run_scripts=() run_script file tmp
+  tmp="$(_cmd_echo_run_scripts "$@")" || return
+  while read -r run_script; do
+    file="$(func=__cmd_echo_file eval "$run_script")"
+    if [ -e "$file" ]; then run_scripts+=("$run_script"); fi
+  done <<< "$tmp"
+  if [ "${#run_scripts[@]}" -eq 0 ]; then
     cmd_log "$cmd_command: command \"$path_from_root\" not found"
     return 1
   fi
   if [ "${#run_scripts[@]}" -gt 1 ]; then
-    local files_joined=$(for r in "${run_scripts[@]}"; do func=__cmd_echo_file eval "$r"; done | cmd_join ', ')
+    local files_joined="$(for r in "${run_scripts[@]}"; do func=__cmd_echo_file eval "$r"; done | cmd_join ', ')"
     cmd_log "$cmd_command: ambiguous command (matched: $files_joined)"
     return 2
   fi
@@ -150,9 +154,10 @@ function __cmd_echo_file {
 }
 
 function cmd_eval {
-  # args: __cmd_eval_expr, path_from_root, cmd_args...
+  # args: __cmd_eval_expr, [path_from_root], [cmd_args...]
   local __cmd_eval_expr="$1"
   shift
+  local cmd_file=
   if [ "$#" -eq 0 ]; then
     __cmd_eval
   elif [ "$1" = '--' ]; then
@@ -169,14 +174,8 @@ function cmd_eval {
 function __cmd_eval {
   # args: cmd_args...
   # scope: __cmd_eval_expr, cmd_root, cmd_file, ...
-  if [ "${cmd_file-}" ]; then
-    # Convenience: expose $cmd_dir to script/expr in eval below.
-    local cmd_dir="$(dirname "$cmd_file")"
-  elif [[ "$__cmd_eval_expr" =~ '$cmd_file'|'$cmd_dir' ]]; then
-    # Reject any expression that includes the substrings "$cmd_file" or "$cmd_dir" if it doesn't have a value.
-    cmd_log "$cmd_command: command required"
-    return 5
-  fi
+  # Convenience: expose $cmd_dir to script/expr in eval below.
+  local cmd_dir="$(dirname "$cmd_file")"
   # Wrapping 'eval' in __cmd_eval_wrap to let 'return' stmts in $__cmd_eval_expr make that func return instead of this one.
   # Note that `||` disables errexit (-e) within the evaluated expression.
   local cmd_exit_code=0
@@ -195,10 +194,8 @@ function __cmd_eval_wrap {
 }
 
 function _cmd_log_file {
-  # scope: cmd_file?
-  if [ "${cmd_file-}" ]; then
-    cmd_log "# [$cmd_file]"
-  fi
+  # scope: cmd_file
+  if [ "$cmd_file" ]; then cmd_log "# [$cmd_file]"; fi
 }
 
 function cmd_eval_logged {
@@ -216,7 +213,7 @@ function cmd_eval_logged {
 function __cmd_eval_log {
   # caller: cmd_eval_logged (via cmd_eval)
   # args: __cmd_eval_expr
-  # scope: cmd_file?, ...
+  # scope: cmd_file, ...
   local __cmd_eval_expr="$1"
   _cmd_log_file
   cmd_log "> $__cmd_eval_expr"
@@ -247,12 +244,12 @@ function cmd_shell {
 
 function __cmd_shell {
   # caller: cmd_shell (via cmd_eval)
-  # scope: cmd_file?, ...
+  # scope: cmd_file, ...
   _cmd_log_file
   local expr
   while read -erp "$CMD_SHELL_PROMPT" expr; do
     if [ "$expr" = '.' ]; then
-      if [ "${cmd_file-}" ]; then
+      if [ "$cmd_file" ]; then
         # Shortcut for loading the command.
         expr='source $cmd_file'
         cmd_log "$CMD_SHELL_PROMPT_EXPANDED$expr"
@@ -292,15 +289,15 @@ case "$__cmd_opt" in
     ;;
   --which)
     shift
-    cmd_eval 'echo "$cmd_file"' "$@"
+    cmd_eval 'echo "$cmd_file"' "$@" '' # additional empty arg forces cmd_eval to look up command
     ;;
   --cat)
     shift
-    cmd_eval 'cat "$cmd_file"' "$@"
+    cmd_eval 'cat "$cmd_file"' "$@" '' # additional empty arg forces cmd_eval to look up command
     ;;
   --edit)
     shift
-    cmd_eval 'vim "$cmd_file"' "$@"
+    cmd_eval 'vim "$cmd_file"' "$@" '' # additional empty arg forces cmd_eval to look up command
     ;;
   --shell)
     shift

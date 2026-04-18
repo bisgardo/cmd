@@ -182,14 +182,14 @@ function test_cannot_eval_without_expr {
   assertContains "$out" 'failed with exit code 127'
 }
 
-function test_eval_requires_command_when_using_dependent_var {
+function test_eval_receives_empty_vars_when_running_without_command {
   local out
-  out=$(cmd --eval 'echo "$cmd_file"' 2>&1)
-  assertEquals 5 $?
-  assertEquals "cmd: command required" "$out"
-  out=$(cmd --eval 'echo "$cmd_dir"' 2>&1)
-  assertEquals 5 $?
-  assertEquals "cmd: command required" "$out"
+  out=$(cmd --eval 'echo "$cmd_file"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals '' "$out"
+  out=$(cmd --eval 'echo "$cmd_dir"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals '.' "$out"
 }
 
 function test_stdin {
