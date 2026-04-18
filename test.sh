@@ -228,6 +228,26 @@ function test_include_with_args {
   assertEquals $'hello world' "$out"
 }
 
+function test_cmd_var {
+  local out
+  # Existing, nonempty var.
+  out=$(my_var=hello cmd --eval 'cmd_var my_var; echo $my_var' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'hello' "$out"
+  # Existing, empty var.
+  out=$(my_var= cmd --eval 'cmd_var my_var; echo "[$my_var]"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals '[]' "$out"
+  # Value provided on stdin...
+  out=$(echo 'my_val' | cmd --eval 'cmd_var my_var; echo $my_var' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'my_val' "$out"
+  # ... with custom prompt.
+  out=$(echo 'my_val' | cmd --eval 'cmd_var my_var "Enter: "; echo $my_var' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'my_val' "$out"
+}
+
 function test_which {
   local out
   out=$(cmd --which hello 2>&1)
@@ -288,26 +308,6 @@ function test_list {
   out=$(cmd --list 2>&1)
   assertEquals 0 $?
   assertEquals $'# testdata/root1\nhello\nnested/hello\n# testdata/root2\necho\nwc\n# testdata/spaced root\nincluding' "$out"
-}
-
-function test_cmd_var {
-  local out
-  # Existing, nonempty var.
-  out=$(myvar=hello cmd --eval 'cmd_var myvar; echo $myvar' 2>/dev/null)
-  assertEquals 0 $?
-  assertEquals 'hello' "$out"
-  # Existing, empty var.
-  out=$(myvar= cmd --eval 'cmd_var myvar; echo "[$myvar]"' 2>/dev/null)
-  assertEquals 0 $?
-  assertEquals '[]' "$out"
-  # Value provided on stdin.
-  out=$(echo 'typed_value' | cmd --eval 'cmd_var myvar; echo $myvar' 2>/dev/null)
-  assertEquals 0 $?
-  assertEquals 'typed_value' "$out"
-  # ... with custom prompt.
-  out=$(echo 'val' | cmd --eval 'cmd_var myvar "Enter: "; echo $myvar' 2>/dev/null)
-  assertEquals 0 $?
-  assertEquals 'val' "$out"
 }
 
 # ---
