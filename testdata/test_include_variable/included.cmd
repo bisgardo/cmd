@@ -1,1 +1,1 @@
-echo "included.cmd: cmd_script_included=${cmd_script_included-}"
+echo "included.cmd: cmd_included_file=${cmd_included_file-}"

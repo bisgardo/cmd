@@ -60,12 +60,12 @@ function test_can_handle_quotes {
 
 function test_eval_env {
   local out
-  out=$(cmd --eval 'echo cmd_root=$cmd_root cmd_script=$cmd_script cmd_dir=$cmd_dir' hello 2>/dev/null)
+  out=$(cmd --eval 'echo cmd_root=$cmd_root cmd_file=$cmd_file cmd_dir=$cmd_dir' hello 2>/dev/null)
   assertEquals 0 $?
-  assertEquals 'cmd_root=testdata/root1 cmd_script=testdata/root1/hello.cmd cmd_dir=testdata/root1' "$out"
-  out=$(cmd --eval 'echo cmd_root=$cmd_root cmd_script=$cmd_script cmd_dir=$cmd_dir' nested/hello 2>/dev/null)
+  assertEquals 'cmd_root=testdata/root1 cmd_file=testdata/root1/hello.cmd cmd_dir=testdata/root1' "$out"
+  out=$(cmd --eval 'echo cmd_root=$cmd_root cmd_file=$cmd_file cmd_dir=$cmd_dir' nested/hello 2>/dev/null)
   assertEquals 0 $?
-  assertEquals 'cmd_root=testdata/root1 cmd_script=testdata/root1/nested/hello.cmd cmd_dir=testdata/root1/nested' "$out"
+  assertEquals 'cmd_root=testdata/root1 cmd_file=testdata/root1/nested/hello.cmd cmd_dir=testdata/root1/nested' "$out"
 }
 
 function test_eval_echo_args {
@@ -184,7 +184,7 @@ function test_cannot_eval_without_expr {
 
 function test_eval_requires_command_when_using_dependent_var {
   local out
-  out=$(cmd --eval 'echo "$cmd_script"' 2>&1)
+  out=$(cmd --eval 'echo "$cmd_file"' 2>&1)
   assertEquals 5 $?
   assertEquals "cmd: command required" "$out"
   out=$(cmd --eval 'echo "$cmd_dir"' 2>&1)
@@ -215,10 +215,10 @@ function test_including {
 
 function test_include_variable {
   local out
-  # Local variable 'cmd_script_included' leaks from 'cmd_include' into included script, but isn't in scope after include returns.
+  # Local variable 'cmd_included_file' leaks from 'cmd_include' into included script, but isn't in scope after include returns.
   out=$(CMD_ROOTS=./testdata/test_include_variable ./cmd including)
   assertEquals 0 $?
-  assertEquals $'including.cmd (before include): cmd_script_included=\nincluded.cmd: cmd_script_included=./testdata/test_include_variable/included.cmd\nincluding.cmd (after include): cmd_script_included=' "$out"
+  assertEquals $'including.cmd (before include): cmd_included_file=\nincluded.cmd: cmd_included_file=./testdata/test_include_variable/included.cmd\nincluding.cmd (after include): cmd_included_file=' "$out"
 }
 
 function test_include_with_args {
@@ -304,11 +304,11 @@ function test_shell {
   assertEquals 0 $?
   assertContains "$out" 'a b c'
   # Evaluate in shell: print cmd, then include other command by relative path.
-  out=$((echo 'echo $cmd_script'; echo 'cmd_include nested/hello') | cmd --shell hello 2>/dev/null)
+  out=$((echo 'echo $cmd_file'; echo 'cmd_include nested/hello') | cmd --shell hello 2>/dev/null)
   assertEquals 0 $?
   assertEquals $'testdata/root1/hello.cmd\nHello, nested world!' "$out"
   # Same as above, but also verify log on stderr.
-  out=$((echo 'echo $cmd_script'; echo 'cmd_include nested/hello') | cmd --shell hello 2>&1)
+  out=$((echo 'echo $cmd_file'; echo 'cmd_include nested/hello') | cmd --shell hello 2>&1)
   assertEquals 0 $?
   assertEquals $'# [testdata/root1/hello.cmd]\ntestdata/root1/hello.cmd\nHello, nested world!' "$out"
   # Run other command by custom root (shows that values persist from one line to the next).
@@ -322,7 +322,7 @@ function test_shell_without_command {
   out=$(echo '.' | cmd --shell 2>&1)
   assertEquals 0 $?
   assertEquals 'cmd: no script in scope' "$out"
-  out=$((echo 'cmd_script=testdata/root1/hello.cmd'; echo '.') | cmd --shell 2>/dev/null)
+  out=$((echo 'cmd_file=testdata/root1/hello.cmd'; echo '.') | cmd --shell 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'Hello, world!' "$out"
   out=$(cmd --shell -- 'World,' 'hello!' <<< 'echo "$@"' 2>/dev/null)

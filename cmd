@@ -57,12 +57,12 @@ function cmd_include {
       return 7
       ;;
   esac
-  local cmd_script_included="$cmd_dir/$path_from_including$CMD_SUFFIX"
+  local cmd_included_file="$cmd_dir/$path_from_including$CMD_SUFFIX"
   shift
-  # Note that both 'path_from_including' and 'cmd_script_include' leak into the included file.
+  # Note that both 'path_from_including' and 'cmd_included_file' leak into the included file.
   # Though not necessarily particularly useful, they could be handy for detecting that the file is being included
   # and/or infer where it was included from (e.g. for debugging).
-  source "$cmd_script_included"
+  source "$cmd_included_file"
 }
 
 function cmd_ask {
@@ -96,10 +96,10 @@ function _cmd_echo_root_run_script {
   local root="$1"
   local path_from_root="$2"
   if shift 2; then
-    local cmd_path="$root/$path_from_root$CMD_SUFFIX"
-    if [ -e "$cmd_path" ]; then
-      # Outputs script of the form `cmd_root=... cmd_script=root/p1/p2.cmd $func [args]`.
-      echo "cmd_root=$(cmd_escape "$root") cmd_script=$(cmd_escape "$cmd_path") \$func $(cmd_escape "$@")"
+    local cmd_file="$root/$path_from_root$CMD_SUFFIX"
+    if [ -e "$cmd_file" ]; then
+      # Outputs script of the form `cmd_root=... cmd_file=root/p1/p2.cmd $func [args]`.
+      echo "cmd_root=$(cmd_escape "$root") cmd_file=$(cmd_escape "$cmd_file") \$func $(cmd_escape "$@")"
     fi
   fi
 }
@@ -144,8 +144,8 @@ function _cmd_echo_unique_run_script {
 
 function __cmd_echo_script {
   # caller: _cmd_echo_unique_run_script (via $run_scripts[])
-  # scope: cmd_root, cmd_script
-  echo $cmd_script
+  # scope: cmd_root, cmd_file
+  echo $cmd_file
 }
 
 function cmd_eval {
@@ -167,12 +167,12 @@ function cmd_eval {
 
 function __cmd_eval {
   # args: cmd_args...
-  # scope: __cmd_eval_expr, cmd_root, cmd_script, ...
-  if [ "${cmd_script-}" ]; then
+  # scope: __cmd_eval_expr, cmd_root, cmd_file, ...
+  if [ "${cmd_file-}" ]; then
     # Convenience: expose $cmd_dir to script/expr in eval below.
-    local cmd_dir="$(dirname "$cmd_script")"
-  elif [[ "$__cmd_eval_expr" =~ '$cmd_script'|'$cmd_dir' ]]; then
-    # Reject any expression that includes the substrings "$cmd_script" or "$cmd_dir" if it doesn't have a value.
+    local cmd_dir="$(dirname "$cmd_file")"
+  elif [[ "$__cmd_eval_expr" =~ '$cmd_file'|'$cmd_dir' ]]; then
+    # Reject any expression that includes the substrings "$cmd_file" or "$cmd_dir" if it doesn't have a value.
     cmd_log "$cmd_command: command required"
     return 5
   fi
@@ -188,15 +188,15 @@ function __cmd_eval {
 
 function __cmd_eval_wrap {
   # args: cmd_args...
-  # scope: __cmd_eval_expr, cmd_root, cmd_script, ...
+  # scope: __cmd_eval_expr, cmd_root, cmd_file, ...
   # Eval user-provided expression. Everything in scope is inherited, including args (accessible as "$@").
   eval "$__cmd_eval_expr"
 }
 
 function _cmd_log_script {
-  # scope: cmd_script?
-  if [ "${cmd_script-}" ]; then
-    cmd_log "# [$cmd_script]"
+  # scope: cmd_file?
+  if [ "${cmd_file-}" ]; then
+    cmd_log "# [$cmd_file]"
   fi
 }
 
@@ -215,7 +215,7 @@ function cmd_eval_logged {
 function __cmd_eval_log {
   # caller: cmd_eval_logged (via cmd_eval)
   # args: __cmd_eval_expr
-  # scope: cmd_script?, ...
+  # scope: cmd_file?, ...
   local __cmd_eval_expr="$1"
   _cmd_log_script
   cmd_log "> $__cmd_eval_expr"
@@ -245,14 +245,14 @@ function cmd_shell {
 
 function __cmd_shell {
   # caller: cmd_shell (via cmd_eval)
-  # scope: cmd_script?, ...
+  # scope: cmd_file?, ...
   _cmd_log_script
   local expr
   while read -erp "$CMD_SHELL_PROMPT" expr; do
     if [ "$expr" = '.' ]; then
-      if [ "${cmd_script-}" ]; then
+      if [ "${cmd_file-}" ]; then
         # Shortcut for loading the command.
-        expr='source $cmd_script'
+        expr='source $cmd_file'
         cmd_log "$CMD_SHELL_PROMPT_EXPANDED$expr"
       else
         cmd_log "$cmd_command: no script in scope"
@@ -266,7 +266,7 @@ function __cmd_shell {
 }
 
 function cmd_run {
-  cmd_eval 'source "$cmd_script"' "$@"
+  cmd_eval 'source "$cmd_file"' "$@"
 }
 
 if [ "$#" -eq 0 ]; then
@@ -278,7 +278,7 @@ fi
 __cmd_opt="$1"
 case "$__cmd_opt" in
   --eval*)
-    # Instead of evaluating the resolved script (cmd_script), evaluate the provided expression.
+    # Instead of evaluating the resolved script (cmd_file), evaluate the provided expression.
     __cmd_eval_expr=${__cmd_opt#--eval=} # contains expr if it was glued using '=', otherwise $__cmd_opt.
     shift # consume '--eval', whether expr is glued or not
     if [ "$__cmd_eval_expr" = "$__cmd_opt" ]; then
@@ -289,15 +289,15 @@ case "$__cmd_opt" in
     ;;
   --which)
     shift
-    cmd_eval 'echo "$cmd_script"' "$@"
+    cmd_eval 'echo "$cmd_file"' "$@"
     ;;
   --cat)
     shift
-    cmd_eval 'cat "$cmd_script"' "$@"
+    cmd_eval 'cat "$cmd_file"' "$@"
     ;;
   --edit)
     shift
-    cmd_eval 'vim "$cmd_script"' "$@"
+    cmd_eval 'vim "$cmd_file"' "$@"
     ;;
   --shell)
     shift
