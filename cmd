@@ -65,14 +65,26 @@ function cmd_include {
   source "$cmd_script_included"
 }
 
-function cmd_var {
+function cmd_ask {
   # args: var [prompt]
-  # Reads variable $var. If unset, prompts the user interactively.
+  # Output ("reply") the contents of var `$var`, or if it's unset, prompts the user for the contents.
   local var="$1"
-  local prompt="${2-"$var: "}"
+  local prompt="${2-"$var:"}"
   if [ -z "${!var+x}" ]; then
-    read -erp "$prompt" "$var"
+    local r
+    read -erp "$prompt " r
+    echo "$r"
+  else
+    echo "${!var}"
   fi
+}
+
+function cmd_confirm {
+  # args: [prompt]
+  # Offer the user the chance to interrupt the script (with SIGINT) unless CMD_CONFIRM is set.
+  # Any input from the user is propagated.
+  local prompt="${1-"Press ENTER to continue or ^C to cancel"}"
+  cmd_ask CMD_CONFIRM "$prompt" >/dev/null
 }
 
 # RESOLVER #
