@@ -345,7 +345,7 @@ function __cmd_edit {
   # caller: cmd_edit_or_create
   # scope: cmd_file, ...
   cmd_log "$cmd_command: editing file \"$cmd_file\""
-  vim "$cmd_file"
+  ${EDITOR:-vim} "$cmd_file"
 }
 
 function cmd_template {

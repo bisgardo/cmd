@@ -342,6 +342,47 @@ function test_shell_in_shell {
   assertEquals 'testdata/root1/nested' "$out"
 }
 
+function test_edit_edits_existing_file {
+  local root out
+  root="$(mktemp -d)"
+  mkdir -p "$root/foo"
+  echo 'my-script' > "$root/foo/bar.cmd"
+  out=$(EDITOR=true CMD_ROOTS="$root" ./cmd --edit foo/bar 2>&1)
+  assertEquals 0 $?
+  # Content unchanged (template not appended).
+  assertEquals 'my-script' "$(cat "$root/foo/bar.cmd")"
+  rm -rf "$root"
+}
+
+function test_edit_creates_in_selected_root {
+  local root1 root2 out
+  root1="$(mktemp -d)"
+  root2="$(mktemp -d)"
+  # Users selects root 2.
+  out=$(echo 2 | CMD_TEMPLATE='my-template' EDITOR=true CMD_ROOTS="$root1:$root2" ./cmd --edit foo/bar 2>&1)
+  assertEquals 0 $?
+  assertTrue 'file should be created under root2' "[ -f '$root2/foo/bar.cmd' ]"
+  assertFalse 'file should NOT be created under root1' "[ -f '$root1/foo/bar.cmd' ]"
+  # Template was appended to the new file.
+  assertEquals 'my-template' "$(cat "$root2/foo/bar.cmd")"
+  rm -rf "$root1" "$root2"
+}
+
+function test_edit_refuses_when_ambiguous {
+  # EDITOR=false would fail with exit code 1 if invoked, catching any regression where the guard is bypassed.
+  local out
+  out=$(EDITOR=false CMD_ROOTS=testdata/root1:testdata/root1/nested ./cmd --edit hello 2>&1)
+  assertEquals 2 $?
+  assertContains "$out" 'ambiguous command'
+}
+
+function test_edit_requires_command {
+  local out
+  out=$(./cmd --edit 2>&1)
+  assertEquals 5 $?
+  assertEquals 'cmd: command required' "$out"
+}
+
 function test_list {
   local out
   out=$(cmd --list 2>&1)
