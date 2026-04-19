@@ -49,14 +49,7 @@ function cmd_join {
 
 function cmd_include {
   local cmd_include_path="$1"
-  # Reject path components '' and '.' (includes absolute paths).
-  # This is the same check as in _cmd_echo_unique_run_script except that we don't reject '..'.
-  case "/$cmd_include_path/" in
-    *//*|*/./*)
-      cmd_log "$cmd_command: invalid include path \"$cmd_include_path\""
-      return 7
-      ;;
-  esac
+  _cmd_validate_include_path "$cmd_include_path" || return
   local cmd_included_file="$cmd_dir/$cmd_include_path$CMD_SUFFIX"
   shift
   # Note that both 'cmd_include_path' and 'cmd_included_file' leak into the included file.
@@ -87,6 +80,39 @@ function cmd_confirm {
   cmd_ask CMD_CONFIRM "$prompt" >/dev/null
 }
 
+# VALIDATION #
+
+function _cmd_validate_path_from_root {
+  # args: path_from_root
+  local path_from_root="$1"
+  if [ -z "$path_from_root" ]; then
+    cmd_log "$cmd_command: command required"
+    return 5
+  fi
+  # Require path to be "simple" (relative and strictly descending) as we're conceptually navigating a command tree, not the filesystem.
+  # This is the same check as in _cmd_validate_include_path except that we also reject '..'.
+  case "/$path_from_root/" in
+    *//*|*/./*|*/../*)
+      cmd_log "$cmd_command: invalid command path \"$path_from_root\""
+      return 7
+      ;;
+  esac
+}
+
+function _cmd_validate_include_path {
+  # args: include_path
+  # Reject path components '' and '.' (includes absolute paths).
+  # This is the same check as in _cmd_validate_path_from_root except that we don't reject '..'.
+  local include_path="$1"
+  case "/$include_path/" in
+    *//*|*/./*)
+      cmd_log "$cmd_command: invalid include path \"$include_path\""
+      return 7
+      ;;
+  esac
+}
+
+
 # RESOLVER #
 
 CMD_SUFFIX='.cmd'
@@ -104,18 +130,7 @@ function _cmd_echo_run_scripts {
   # args: path_from_root, cmd_args...
   # input: sequence of roots (consumed by 'cmd_split').
   local path_from_root="$1"
-  if [ -z "$path_from_root" ]; then
-    cmd_log "$cmd_command: command required"
-    return 5
-  fi
-  # Require path to be "simple" (relative and strictly descending) as we're conceptually navigating a command tree, not the filesystem.
-  # This is the same check as in cmd_include except that we also reject '..'.
-  case "/$path_from_root/" in
-    *//*|*/./*|*/../*)
-      cmd_log "$cmd_command: invalid command path \"$path_from_root\""
-      return 7
-      ;;
-  esac
+  _cmd_validate_path_from_root "$path_from_root" || return
   local root
   cmd_split ':' |
     while read -r root; do
