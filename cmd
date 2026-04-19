@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-CMD_ROOTS="${CMD_ROOTS-.}"
+CMD_ROOTS="${CMD_ROOTS-.}" # must have at most 255 elements
 cmd_command="$(basename $0)"
 
 # UTILITIES #
@@ -112,7 +112,6 @@ function _cmd_validate_include_path {
   esac
 }
 
-
 # RESOLVER #
 
 CMD_SUFFIX='.cmd'
@@ -126,44 +125,41 @@ function _cmd_echo_root_run_script {
   fi
 }
 
-function _cmd_echo_run_scripts {
-  # args: path_from_root, cmd_args...
-  # input: sequence of roots (consumed by 'cmd_split').
-  local path_from_root="$1"
-  _cmd_validate_path_from_root "$path_from_root" || return
-  local root
-  cmd_split ':' |
-    while read -r root; do
-      _cmd_echo_root_run_script "$root" "$@"
-    done
+function _cmd_filter_run_scripts_by_existence {
+  # input: sequence of run scripts
+  # output: run scripts corresponding to files that exist (one per line)
+  # Returns number of output lines - not error code! - silently assuming that to be at most 255.
+  local run_script f res=0
+  while read -r run_script; do
+    f="$(func='__cmd_echo_var cmd_file' eval "$run_script")"
+    if [ -e "$f" ]; then
+      echo "$run_script"
+      res=$((res+1))
+    fi
+  done
+  return $res
 }
 
 function _cmd_echo_unique_run_script {
-  # args: path_from_root, cmd_args...
-  # input: sequence of roots (consumed by '_cmd_echo_run_scripts').
+  # args: path_from_root
+  # input: sequence of run scripts
   local path_from_root="$1"
-  local run_scripts=() run_script file tmp
-  tmp="$(_cmd_echo_run_scripts "$@")" || return
-  while read -r run_script; do
-    file="$(func=__cmd_echo_file eval "$run_script")"
-    if [ -e "$file" ]; then run_scripts+=("$run_script"); fi
-  done <<< "$tmp"
-  if [ "${#run_scripts[@]}" -eq 0 ]; then
-    cmd_log "$cmd_command: command \"$path_from_root\" not found"
-    return 1
-  fi
-  if [ "${#run_scripts[@]}" -gt 1 ]; then
-    local files_joined="$(for r in "${run_scripts[@]}"; do func=__cmd_echo_file eval "$r"; done | cmd_join ', ')"
-    cmd_log "$cmd_command: ambiguous command (matched: $files_joined)"
-    return 2
-  fi
-  echo "$run_scripts" # single-element-array
-}
-
-function __cmd_echo_file {
-  # caller: _cmd_echo_unique_run_script (via $run_scripts[])
-  # scope: cmd_root, cmd_file
-  echo $cmd_file
+  local run_scripts count=0
+  run_scripts=$(_cmd_filter_run_scripts_by_existence) || count=$?
+  case "$count" in
+    0)
+      cmd_log "$cmd_command: command \"$path_from_root\" not found"
+      return 1
+      ;;
+    1)
+      echo "$run_scripts"
+      ;;
+    *)
+      local files_joined="$(func='__cmd_echo_var cmd_file' eval "$run_scripts" | cmd_join ', ')"
+      cmd_log "$cmd_command: ambiguous command (matched: $files_joined)"
+      return 2
+      ;;
+  esac
 }
 
 # RUN #
@@ -180,10 +176,24 @@ function cmd_eval {
     shift
     __cmd_eval "$@"
   else
-    local run_script # must declare local first as it otherwise eats the called function's return value
-    run_script=$(_cmd_echo_unique_run_script "$@" <<< "$CMD_ROOTS")
-    func=__cmd_eval eval "$run_script"
+    local path_from_root="$1"
+    shift
+    _cmd_validate_path_from_root "$path_from_root" || return
+    local roots unique_run_script
+    _cmd_roots_to_array "$CMD_ROOTS" roots
+    unique_run_script="$(
+      for r in "${roots[@]}"; do
+        _cmd_echo_root_run_script "$r" "$path_from_root" "$@"
+      done |
+      _cmd_echo_unique_run_script "$path_from_root"
+    )"
+    func=__cmd_eval eval "$unique_run_script"
   fi
+}
+
+function _cmd_roots_to_array {
+  # args: array, roots (not extracting vars to avoid collisions with input var)
+  IFS=":" read -ra "$2" <<< "$1"
 }
 
 function __cmd_eval {
@@ -282,6 +292,88 @@ function cmd_run {
   cmd_eval 'source "$cmd_file"' "$@"
 }
 
+function cmd_edit_or_create {
+  # args: path_from_root
+  local path_from_root="$1"
+  _cmd_validate_path_from_root "$path_from_root" || return
+  # TODO: If no path provided, list all and allow user to select which one to edit? Or does is that an autocompletion thing?
+  local roots run_scripts
+  _cmd_roots_to_array "$CMD_ROOTS" roots
+  run_scripts="$(for r in "${roots[@]}"; do _cmd_echo_root_run_script "$r" "$path_from_root"; done)"
+
+  # Would be nice to be able to have _cmd_filter_run_scripts_by_existence populate array in the style of `read`.
+  # Unfortunately you cannot do that in ancient Bash without unforgivable hacks.
+  # Also, "lists" (as in multi-line strings) may be eval'd all in one go!
+  local run_scripts_existing count=0
+  run_scripts_existing="$(_cmd_filter_run_scripts_by_existence <<< "$run_scripts")" || count=$?
+  case "$count" in
+    0)
+      # no matches: create
+      cmd_log "$cmd_command: command \"$path_from_root\" not found"
+      cmd_log "$cmd_command: select root in which to create it or ^C to cancel"
+      local PS3="Root: " root
+      select root in "${roots[@]}"; do
+        if [ "$root" ]; then break; fi
+      done
+      # Could filter $run_scripts by root, but now that we have root, it's easier to just regenerate the run script.
+      local run_script="$(_cmd_echo_root_run_script "$root" "$path_from_root")"
+      func=__cmd_create eval "$run_script"
+      ;;
+    1)
+      # unique match: edit
+      func=__cmd_edit eval "$run_scripts_existing"
+      ;;
+    *)
+      # ambiguous match: error
+      local files_joined="$(func='__cmd_echo_var cmd_file' eval "$run_scripts_existing" | cmd_join ', ')"
+      cmd_log "$cmd_command: ambiguous command (matched: $files_joined)"
+      return 2
+      ;;
+  esac
+}
+
+function __cmd_create {
+  # caller: cmd_edit_or_create
+  # scope: cmd_file, ...
+  mkdir -p "$(dirname "$cmd_file")"
+  cmd_template >> "$cmd_file"
+  cmd_log "$cmd_command: appended template to file \"$cmd_file\""
+  __cmd_edit
+}
+
+function __cmd_edit {
+  # caller: cmd_edit_or_create
+  # scope: cmd_file, ...
+  cmd_log "$cmd_command: editing file \"$cmd_file\""
+  vim "$cmd_file"
+}
+
+function cmd_template {
+  echo "${CMD_TEMPLATE-"
+
+# This script is intended to be run by cmd (https://github.com/bisgardo/cmd).
+#
+# Variables in scope:
+#   \$@         - additional CLI arguments
+#   \$cmd_root  - root directory (an entry of CMD_ROOTS)
+#   \$cmd_file  - absolute path to this file
+#   \$cmd_dir   - directory containing this file
+#
+# Functions in scope:
+#   cmd_log <msg...>             - log to stderr
+#   cmd_split <delim>            - split stdin into lines by delim
+#   cmd_join <delim>             - join stdin lines by the delim
+#   cmd_ask <var> [prompt]       - print contents of var if set, otherwise prompt user (doesn\'t modify var)
+#   cmd_confirm [prompt]         - wait for user input unless \$CMD_CONFIRM is set
+#   cmd_include <path> [args...] - source a .cmd file by relative command path
+"}"
+}
+
+function __cmd_echo_var {
+  # input: var
+  echo "${!1}"
+}
+
 if [ "$#" -eq 0 ]; then
   cmd_log "cmd is a tool for finding and running commands."
   cmd_log "Usage: $cmd_command <command> [args]"
@@ -311,7 +403,7 @@ case "$__cmd_opt" in
     ;;
   --edit)
     shift
-    cmd_eval 'vim "$cmd_file"' "$@" '' # additional empty arg forces cmd_eval to look up command
+    cmd_edit_or_create "$@" ''
     ;;
   --shell)
     shift
