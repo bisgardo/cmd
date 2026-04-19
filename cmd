@@ -100,8 +100,6 @@ function _cmd_echo_root_run_script {
   fi
 }
 
-# RUN #
-
 function _cmd_echo_run_scripts {
   # args: path_from_root, cmd_args...
   # input: sequence of roots (consumed by 'cmd_split').
@@ -153,6 +151,8 @@ function __cmd_echo_file {
   echo $cmd_file
 }
 
+# RUN #
+
 function cmd_eval {
   # args: __cmd_eval_expr, [path_from_root], [cmd_args...]
   local __cmd_eval_expr="$1"
@@ -174,8 +174,7 @@ function cmd_eval {
 function __cmd_eval {
   # args: cmd_args...
   # scope: __cmd_eval_expr, cmd_root, cmd_file, ...
-  # Convenience: expose $cmd_dir to script/expr in eval below.
-  local cmd_dir="$(dirname "$cmd_file")"
+  local cmd_dir="$(dirname "$cmd_file")" # provides cmd_dir to __cmd_eval_expr
   # Wrapping 'eval' in __cmd_eval_wrap to let 'return' stmts in $__cmd_eval_expr make that func return instead of this one.
   # Note that `||` disables errexit (-e) within the evaluated expression.
   local cmd_exit_code=0
