@@ -59,25 +59,21 @@ function cmd_include {
 }
 
 function cmd_ask {
-  # args: var [prompt]
-  # Output ("reply") the contents of var `$var`, or if it's unset, prompts the user for the contents.
-  local var="$1"
-  local prompt="${2-"$var:"}"
-  if [ -z "${!var+x}" ]; then
-    local r
-    read -erp "$prompt " r
-    echo "$r"
-  else
-    echo "${!var}"
-  fi
+  # args: prompt [default]
+  # Prompt the user using `$prompt` and output the response, falling back to `$default` if empty.
+  local prompt="$1"
+  local default="${2-}"
+  local r
+  read -erp "$prompt " r
+  echo "${r:-$default}"
 }
 
 function cmd_confirm {
   # args: [prompt]
-  # Offer the user the chance to interrupt the script (with SIGINT) unless CMD_CONFIRM is set.
+  # Offer the user the chance to interrupt the script (with SIGINT).
   # Any user intput is discarded.
-  local prompt="${1-"Press ENTER to continue or ^C to cancel"}"
-  cmd_ask CMD_CONFIRM "$prompt" >/dev/null
+  local prompt="${1-'Press ENTER to continue or ^C to cancel'}"
+  cmd_ask "$prompt" >/dev/null
 }
 
 # VALIDATION #
@@ -363,8 +359,8 @@ function cmd_template {
 #   cmd_log <msg...>             - log to stderr
 #   cmd_split <delim>            - split stdin into lines by delim
 #   cmd_join <delim>             - join stdin lines by the delim
-#   cmd_ask <var> [prompt]       - print contents of var if set, otherwise prompt user (doesn\'t modify var)
-#   cmd_confirm [prompt]         - wait for user input unless \$CMD_CONFIRM is set
+#   cmd_ask <prompt> [default]   - prompt user; echo response, falling back to default if empty
+#   cmd_confirm [prompt]         - wait for user input (discarding response)
 #   cmd_include <path> [args...] - source a .cmd file by relative command path
 "}"
 }

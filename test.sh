@@ -230,31 +230,30 @@ function test_include_with_args {
 
 function test_cmd_ask {
   local out
-  # Existing, nonempty var.
-  out=$(my_var=hello cmd --eval 'r=`cmd_ask my_var`; echo $r' 2>/dev/null)
+  # Response provided on stdin.
+  out=$(echo 'my_val' | cmd --eval 'r=`cmd_ask "Enter:"`; echo $r' 2>/dev/null)
   assertEquals 0 $?
-  assertEquals 'hello' "$out"
-  # Existing, empty var.
-  out=$(my_var= cmd --eval 'r=`cmd_ask my_var`; echo "[$r]"' 2>/dev/null)
+  assertEquals 'my_val' "$out"
+  # Empty response, no default.
+  out=$(echo | cmd --eval 'r=`cmd_ask "Enter:"`; echo "[$r]"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals '[]' "$out"
-  # Nonexisting var; value provided on stdin...
-  out=$(echo 'my_val' | cmd --eval 'r=`cmd_ask my_var`; echo $r' 2>/dev/null)
+  # Empty response: falls back to default.
+  out=$(echo | cmd --eval 'r=`cmd_ask "Enter:" my_default`; echo $r' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'my_default' "$out"
+  # Non-empty response wins over default.
+  out=$(echo 'my_val' | cmd --eval 'r=`cmd_ask "Enter:" my_default`; echo $r' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
-  # ... with custom prompt.
-  out=$(echo 'my_val' | cmd --eval 'r=`cmd_ask my_var "Enter: "`; echo $r' 2>/dev/null)
+  # Idiomatic "use var if set, else prompt": var set.
+  out=$(my_var=hello cmd --eval 'r="${my_var:-$(cmd_ask "Enter:")}"; echo $r' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'hello' "$out"
+  # Idiomatic "use var if set, else prompt": var unset.
+  out=$(echo 'my_val' | cmd --eval 'r="${my_var:-$(cmd_ask "Enter:")}"; echo $r' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
-
-  # Can overwrite existing var.
-  out=$(my_var=hello cmd --eval 'my_var=`cmd_ask my_var`; echo $my_var' 2>/dev/null)
-  assertEquals 0 $?
-  assertEquals 'hello' "$out"
-  # Also locally
-  out=$(my_var=hello cmd --eval 'local my_var=`cmd_ask my_var`; echo $my_var' 2>/dev/null)
-  assertEquals 0 $?
-  assertEquals 'hello' "$out"
 }
 
 function test_cmd_confirm {
@@ -264,13 +263,6 @@ function test_cmd_confirm {
   assertEquals 0 $?
   assertEquals '' "$out"
   out=$(echo stop | cmd --eval 'cmd_confirm' 2>/dev/null)
-  assertEquals 0 $?
-  assertEquals '' "$out"
-  # CMD_CONFIRM being set confirms without stdin
-  out=$(CMD_CONFIRM=continue cmd --eval 'cmd_confirm' 2>/dev/null)
-  assertEquals 0 $?
-  assertEquals '' "$out"
-  out=$(echo stop | CMD_CONFIRM=continue cmd --eval 'cmd_confirm' 2>/dev/null)
   assertEquals 0 $?
   assertEquals '' "$out"
 }
