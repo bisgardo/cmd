@@ -344,6 +344,57 @@ function __cmd_edit {
   ${EDITOR:-vim} "$cmd_file"
 }
 
+function __cmd_rm {
+  # caller: cmd_eval
+  # scope: cmd_file, ...
+  cmd_confirm "Press ENTER to delete file \"$cmd_file\" or ^C to cancel"
+  rm "$cmd_file"
+  cmd_log "$cmd_command: deleted file \"$cmd_file\""
+}
+
+function __cmd_mv {
+  # caller: cmd_eval
+  # scope: path_from_root, roots, cmd_root, cmd_file, ...
+  cmd_log "$cmd_command: select new root or ^D to keep \"$cmd_root\""
+  local PS3="Root: " cmd_root_new
+  select cmd_root_new in "${roots[@]}"; do
+    if [ "$cmd_root_new" ]; then break; fi
+  done
+  cmd_root_new="${cmd_root_new-"$cmd_root"}"
+  local path_from_root_new="${1-}"
+  path_from_root_new="$(cmd_ask "$path_from_root_new" "Input new name or leave empty to keep \"$path_from_root\":" "$path_from_root")"
+  if [ "$cmd_root_new" = "$cmd_root" -a "$path_from_root_new" = "$path_from_root" ]; then
+    cmd_log "$cmd_command: unchanged"
+    return
+  fi
+  _cmd_validate_path_from_root "$path_from_root_new" || return
+  # Reject if any root (other than the source itself) already has a file at the new path:
+  # the move would otherwise produce an ambiguous command.
+  local run_scripts_existing count=0
+  run_scripts_existing="$(
+    for r in "${roots[@]}"; do
+      if [ "$r" != "$cmd_root" ]; then
+        _cmd_echo_root_run_script "$r" "$path_from_root_new"
+      fi
+    done | _cmd_filter_run_scripts_by_existence
+  )" || count=$?
+  if [ "$count" -gt 0 ]; then
+    local files_joined="$(func='__cmd_echo_var cmd_file' eval "$run_scripts_existing" | cmd_join ', ')"
+    cmd_log "$cmd_command: command \"$path_from_root_new\" already exists ($files_joined)"
+    return 3
+  fi
+  local new_run_script="$(_cmd_echo_root_run_script "$cmd_root_new" "$path_from_root_new")"
+  cmd_file_old="$cmd_file" func=__cmd_mv_file eval "$new_run_script"
+}
+
+function __cmd_mv_file {
+  # caller: __cmd_mv
+  # scope: cmd_file_old, cmd_file, cmd_dir, ...
+  mkdir -p "$cmd_dir"
+  mv "$cmd_file_old" "$cmd_file"
+  cmd_log "$cmd_command: moved file \"$cmd_file_old\" to \"$cmd_file\""
+}
+
 function cmd_template {
   echo "${CMD_TEMPLATE-"
 
@@ -395,11 +446,19 @@ case "$__cmd_opt" in
     ;;
   --cat)
     shift
-    cmd_eval 'cat "$cmd_file"' "$@" '' # additional empty arg forces cmd_eval to look up command
+    cmd_eval 'cat "$cmd_file"' "$@" ''
     ;;
   --edit)
     shift
     cmd_edit_or_create "$@" ''
+    ;;
+  --rm)
+    shift
+    cmd_eval __cmd_rm "$@" ''
+    ;;
+  --mv)
+    shift
+    cmd_eval __cmd_mv "$@" ''
     ;;
   --shell)
     shift

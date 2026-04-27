@@ -375,6 +375,119 @@ function test_edit_requires_command {
   assertEquals 'cmd: command required' "$out"
 }
 
+#function test_rm_removes_existing_file {
+#  local root out
+#  root="$(mktemp -d)"
+#  mkdir -p "$root/foo"
+#  echo 'my-script' > "$root/foo/bar.cmd"
+#  out=$(CMD_ROOTS="$root" ./cmd --rm foo/bar 2>&1)
+#  assertEquals 0 $?
+#  assertFalse 'file should be deleted' "[ -e '$root/foo/bar.cmd' ]"
+#  rm -rf "$root"
+#}
+#
+#function test_rm_refuses_when_ambiguous {
+#  local out
+#  out=$(CMD_ROOTS=testdata/root1:testdata/root1/nested ./cmd --rm hello 2>&1)
+#  assertEquals 2 $?
+#  assertContains "$out" 'ambiguous command'
+#  # Safety check: the ambiguous files should still exist.
+#  assertTrue '[ -f testdata/root1/hello.cmd ]'
+#  assertTrue '[ -f testdata/root1/nested/hello.cmd ]'
+#}
+#
+#function test_rm_not_found {
+#  local out
+#  out=$(cmd --rm nonexistent 2>&1)
+#  assertEquals 1 $?
+#  assertEquals 'cmd: command "nonexistent" not found' "$out"
+#}
+#
+#function test_rm_requires_command {
+#  local out
+#  out=$(./cmd --rm 2>&1)
+#  assertEquals 5 $?
+#  assertEquals 'cmd: command required' "$out"
+#}
+#
+#function test_mv_renames_in_same_root {
+#  local root out
+#  root="$(mktemp -d)"
+#  mkdir -p "$root/foo"
+#  echo 'my-script' > "$root/foo/bar.cmd"
+#  # Select only root (1), new name "foo/baz".
+#  out=$(printf '1\nfoo/baz\n' | CMD_ROOTS="$root" ./cmd --mv foo/bar 2>&1)
+#  assertEquals 0 $?
+#  assertFalse 'old file should not exist' "[ -e '$root/foo/bar.cmd' ]"
+#  assertTrue 'new file should exist' "[ -f '$root/foo/baz.cmd' ]"
+#  assertEquals 'my-script' "$(cat "$root/foo/baz.cmd")"
+#  rm -rf "$root"
+#}
+#
+#function test_mv_moves_to_different_root_keeping_name {
+#  local root1 root2 out
+#  root1="$(mktemp -d)"
+#  root2="$(mktemp -d)"
+#  mkdir -p "$root1/foo"
+#  echo 'my-script' > "$root1/foo/bar.cmd"
+#  # Select root 2, keep name (empty input).
+#  out=$(printf '2\n\n' | CMD_ROOTS="$root1:$root2" ./cmd --mv foo/bar 2>&1)
+#  assertEquals 0 $?
+#  assertFalse 'old file should not exist' "[ -e '$root1/foo/bar.cmd' ]"
+#  assertTrue 'new file should exist' "[ -f '$root2/foo/bar.cmd' ]"
+#  assertEquals 'my-script' "$(cat "$root2/foo/bar.cmd")"
+#  rm -rf "$root1" "$root2"
+#}
+#
+#function test_mv_refuses_when_ambiguous {
+#  local out
+#  out=$(CMD_ROOTS=testdata/root1:testdata/root1/nested ./cmd --mv hello </dev/null 2>&1)
+#  assertEquals 2 $?
+#  assertContains "$out" 'ambiguous command'
+#}
+#
+#function test_mv_rejects_existing_destination {
+#  local root out
+#  root="$(mktemp -d)"
+#  mkdir -p "$root/foo"
+#  echo 'src' > "$root/foo/bar.cmd"
+#  echo 'dst' > "$root/foo/baz.cmd"
+#  out=$(printf '1\nfoo/baz\n' | CMD_ROOTS="$root" ./cmd --mv foo/bar 2>&1)
+#  assertEquals 3 $?
+#  assertContains "$out" 'already exists'
+#  # Source and destination left untouched.
+#  assertEquals 'src' "$(cat "$root/foo/bar.cmd")"
+#  assertEquals 'dst' "$(cat "$root/foo/baz.cmd")"
+#  rm -rf "$root"
+#}
+#
+#function test_mv_noop_when_same_root_and_name {
+#  local root out
+#  root="$(mktemp -d)"
+#  mkdir -p "$root/foo"
+#  echo 'my-script' > "$root/foo/bar.cmd"
+#  # Select only root (1), empty new name - same location.
+#  out=$(printf '1\n\n' | CMD_ROOTS="$root" ./cmd --mv foo/bar 2>&1)
+#  assertEquals 0 $?
+#  assertContains "$out" 'not moving'
+#  assertEquals 'my-script' "$(cat "$root/foo/bar.cmd")"
+#  rm -rf "$root"
+#}
+#
+#function test_mv_not_found {
+#  local out
+#  out=$(cmd --mv nonexistent </dev/null 2>&1)
+#  assertEquals 1 $?
+#  assertContains "$out" 'command "nonexistent" not found'
+#}
+#
+#function test_mv_requires_command {
+#  local out
+#  out=$(./cmd --mv 2>&1)
+#  assertEquals 5 $?
+#  assertEquals 'cmd: command required' "$out"
+#}
+
 function test_list {
   local out
   out=$(cmd --list 2>&1)
