@@ -230,28 +230,28 @@ function test_include_with_args {
 
 function test_cmd_ask {
   local out
-  # Response provided on stdin.
-  out=$(echo 'my_val' | cmd --eval 'r=`cmd_ask "Enter:"`; echo $r' 2>/dev/null)
-  assertEquals 0 $?
-  assertEquals 'my_val' "$out"
-  # Empty response, no default.
-  out=$(echo | cmd --eval 'r=`cmd_ask "Enter:"`; echo "[$r]"' 2>/dev/null)
-  assertEquals 0 $?
-  assertEquals '[]' "$out"
-  # Empty response: falls back to default.
-  out=$(echo | cmd --eval 'r=`cmd_ask "Enter:" my_default`; echo $r' 2>/dev/null)
+  # Empty response uses default...
+  out=$(echo | cmd --eval 'cmd_ask "Enter:" my_default' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_default' "$out"
-  # Non-empty response wins over default.
-  out=$(echo 'my_val' | cmd --eval 'r=`cmd_ask "Enter:" my_default`; echo $r' 2>/dev/null)
+  # ... which defaults to empty.
+  out=$(echo | cmd --eval 'cmd_ask "Enter:"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals '' "$out"
+  # Non-empty response is used...
+  out=$(echo 'my_val' | cmd --eval 'cmd_ask "Enter:"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
-  # Idiomatic "use var if set, else prompt": var set.
-  out=$(my_var=hello cmd --eval 'r="${my_var:-$(cmd_ask "Enter:")}"; echo $r' 2>/dev/null)
+  # ... including when default is provided.
+  out=$(echo 'my_val' | cmd --eval 'cmd_ask "Enter:" my_default' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'my_val' "$out"
+  # Idiomatic "use var if set, else prompt", where var is set.
+  out=$(my_var=hello cmd --eval 'local my_var="${my_var:-$(cmd_ask "Enter:")}"; echo "$my_var"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'hello' "$out"
-  # Idiomatic "use var if set, else prompt": var unset.
-  out=$(echo 'my_val' | cmd --eval 'r="${my_var:-$(cmd_ask "Enter:")}"; echo $r' 2>/dev/null)
+  # Idiomatic "use var if set, else prompt", where var is not set.
+  out=$(echo 'my_val' | cmd --eval 'local my_var="${my_var:-$(cmd_ask "Enter:")}"; echo "$my_var"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
 }
