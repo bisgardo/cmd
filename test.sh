@@ -254,6 +254,11 @@ function test_cmd_ask {
   out=$(echo 'my_val' | cmd --eval 'local my_var="${my_var:-$(cmd_ask "Enter:")}"; echo "$my_var"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
+  # Provided prompt (with trailing space) is passed to `read` (verified via xtrace).
+  out=$(cmd --eval 'set -x; cmd_ask "Enter:"' < /dev/null 2>&1)
+  assertEquals 0 $?
+  out=$(grep '^++ read ' <<< "$out")
+  assertEquals "++ read -erp 'Enter: ' r" "$out"
 }
 
 function test_cmd_confirm {
