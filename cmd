@@ -72,7 +72,7 @@ function cmd_confirm {
   # args: [prompt]
   # Offer the user the chance to interrupt the script (with SIGINT).
   # Any user intput is discarded.
-  local prompt="${1-'Press ENTER to continue or ^C to cancel'}"
+  local prompt="${1-"Press ENTER to continue or ^C to cancel"}"
   cmd_ask "$prompt" >/dev/null
 }
 

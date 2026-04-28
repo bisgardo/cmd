@@ -262,9 +262,15 @@ function test_cmd_confirm {
   out=$(echo | cmd --eval 'cmd_confirm' 2>/dev/null)
   assertEquals 0 $?
   assertEquals '' "$out"
+  # Input is discarded.
   out=$(echo stop | cmd --eval 'cmd_confirm' 2>/dev/null)
   assertEquals 0 $?
   assertEquals '' "$out"
+  # Default prompt is forwarded to cmd_ask unchanged.
+  out=$(echo | cmd --eval 'cmd_ask() { >&2 echo "PROMPT:$1"; }; cmd_confirm' 2>&1)
+  assertEquals 0 $?
+  out=$(grep '^PROMPT:' <<< "$out")
+  assertEquals 'PROMPT:Press ENTER to continue or ^C to cancel' "$out"
 }
 
 function test_which {
