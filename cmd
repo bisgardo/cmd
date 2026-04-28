@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eo pipefail
 
 CMD_ROOTS="${CMD_ROOTS-.}" # must have at most 255 elements
 cmd_command="$(basename $0)"
@@ -279,7 +279,6 @@ function __cmd_shell {
       fi
     fi
     # Although `set -e` is set globally, eval failures don't crash the script here for reasons explained in __cmd_eval.
-    # Reading nonexistent variables still do - we should probably fix that at some point.
     eval "$expr"
   done
 }

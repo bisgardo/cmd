@@ -1,3 +1,7 @@
+# Check that no unset variables are dereferenced in this file or the tests.
+set -u
+export SHELLOPTS
+
 function cmd {
   CMD_ROOTS='testdata/root1:testdata/root2:testdata/spaced root' ./cmd "$@"
 }
