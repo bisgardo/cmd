@@ -89,6 +89,15 @@ function test_eval_quoted {
   assertEquals 'x"y' "$out"
 }
 
+function test_eval_logged_escapes_msg {
+  local out
+  out=$(cmd --eval 'echo first; echo second' 2>&1)
+  assertEquals 0 $?
+  # Log line shows the full expression as a single token
+  # and each side-effect happens exactly once.
+  assertEquals $'> echo first; echo second\nfirst\nsecond' "$out"
+}
+
 function test_eval_quoted_unmatched {
   local out
   out=$(cmd --eval ec\'ho hello 2>&1)
