@@ -220,14 +220,14 @@ function _cmd_log_file {
 
 function cmd_eval_logged {
   # args: __cmd_eval_expr, path_from_root, cmd_args...
-  local __cmd_eval_expr="${1:-''}" # default to *quoted* empty string if it was empty or unset
-  if shift; then
-    # Prevent logging to $__cmd_eval_expr
-    cmd_eval "__cmd_eval_log $(cmd_escape "$__cmd_eval_expr") && $__cmd_eval_expr" "$@"
-  else
+  if [ "$#" -eq 0 ]; then
     cmd_log "$cmd_command: no expression provided"
     return 6
   fi
+  local __cmd_eval_expr="${1:-''}" # default to *quoted* empty string if it was empty or unset
+  shift
+  # Prevent logging to $__cmd_eval_expr
+  cmd_eval "__cmd_eval_log $(cmd_escape "$__cmd_eval_expr") && $__cmd_eval_expr" "$@"
 }
 
 function __cmd_eval_log {
