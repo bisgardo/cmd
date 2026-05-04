@@ -291,6 +291,57 @@ function test_cmd_confirm {
   assertEquals 'PROMPT:Press ENTER to continue or ^C to cancel' "$out"
 }
 
+function test_cmd_var {
+  local out
+  # Existing, nonempty var.
+  out=$(my_var=hello cmd --eval 'cmd_var my_var' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'hello' "$out"
+  # Existing, empty var.
+  out=$(my_var= cmd --eval 'cmd_var my_var' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals '' "$out"
+  # Nonexisting var; value provided on stdin.
+  out=$(echo 'my_val' | cmd --eval 'cmd_var my_var' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'my_val' "$out"
+  # ... with custom prompt.
+  out=$(echo 'my_val' | cmd --eval 'cmd_var my_var "Enter:"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'my_val' "$out"
+  # Empty value provided.
+  out=$(echo | cmd --eval 'cmd_var my_var' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals '' "$out"
+  # Define local var that didn't exist previously.
+  out=$(my_var=hello cmd --eval 'local my_var="$(cmd_var my_var)"; echo "$my_var"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'hello' "$out"
+  # Define previously unset local var.
+  out=$(echo 'my_val' | cmd --eval 'local my_var="$(cmd_var my_var)"; echo "$my_var"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'my_val' "$out"
+  # Define previously existing local var.
+  out=$(echo 'my_val' | my_var=our_val cmd --eval 'echo "$my_var"; local my_var="$(cmd_var my_var)"; echo "$my_var"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals $'our_val\nour_val' "$out"
+  # ... which may be internal.
+  out=$(cmd --eval 'echo "$cmd_command"; local my_var="$(cmd_var cmd_command)"; echo "$cmd_command"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals $'cmd\ncmd' "$out"
+  # Var names don't collide with cmd_ask's internal locals ('prompt', 'default', 'r').
+  out=$(prompt=foo default=bar r=baz cmd --eval 'echo "$(cmd_var prompt)#$(cmd_var default)#$(cmd_var r)"' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'foo#bar#baz' "$out"
+  # Positional args leak (don't use)...
+  out=$(echo x | cmd --eval 'cmd_var 1' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals '1' "$out"
+  out=$(echo x | cmd --eval 'cmd_var 2' 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'x' "$out"
+}
+
 function test_which {
   local out
   out=$(cmd --which hello 2>&1)

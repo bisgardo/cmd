@@ -76,6 +76,12 @@ function cmd_confirm {
   cmd_ask "$prompt" >/dev/null
 }
 
+function cmd_var {
+  # args: var [prompt]
+  # Reads variable $var. If unset, prompts the user interactively.
+  echo "${!1-$(cmd_ask "${2-"$1:"}")}" # don't extract vars to avoid collisions
+}
+
 # VALIDATION #
 
 function _cmd_validate_path_from_root {
