@@ -297,10 +297,10 @@ function test_cmd_var {
   out=$(my_var=hello cmd --eval 'cmd_var my_var' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'hello' "$out"
-  # Existing, empty var.
-  out=$(my_var= cmd --eval 'cmd_var my_var' 2>/dev/null)
+  # Existing, empty var (prompts).
+  out=$(echo 'my_val' | my_var= cmd --eval 'cmd_var my_var' 2>/dev/null)
   assertEquals 0 $?
-  assertEquals '' "$out"
+  assertEquals 'my_val' "$out"
   # Nonexisting var; value provided on stdin.
   out=$(echo 'my_val' | cmd --eval 'cmd_var my_var' 2>/dev/null)
   assertEquals 0 $?

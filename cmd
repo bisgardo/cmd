@@ -78,8 +78,8 @@ function cmd_confirm {
 
 function cmd_var {
   # args: var [prompt]
-  # Reads variable $var. If unset, prompts the user interactively.
-  echo "${!1-$(cmd_ask "${2-"$1:"}")}" # don't extract vars to avoid collisions
+  # output: contents of variable $var if it's non-empty, otherwise the result of an interactive prompt.
+  echo "${!1:-$(cmd_ask "${2-"$1:"}")}" # don't extract vars to avoid collisions
 }
 
 # VALIDATION #
