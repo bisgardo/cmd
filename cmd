@@ -76,12 +76,6 @@ function cmd_confirm {
   cmd_ask "$prompt" >/dev/null
 }
 
-function cmd_var {
-  # args: var [prompt]
-  # output: contents of variable $var if it's non-empty, otherwise the result of an interactive prompt.
-  echo "${!1:-$(cmd_ask "${2-"$1:"}")}" # don't extract vars to avoid collisions
-}
-
 # VALIDATION #
 
 function _cmd_validate_path_from_root {
@@ -367,6 +361,12 @@ function cmd_template {
 #   cmd_ask <prompt> [default]   - prompt user; echo response, falling back to default if empty
 #   cmd_confirm [prompt]         - wait for user input (discarding response)
 #   cmd_include <path> [args...] - source a .cmd file by relative command path
+#
+# Example:
+#   local name=\"\${1:-\$(cmd_ask \"Name [\$USER]:\" \"\$USER\")}\"
+#   cmd_log \"Hello, \$name!\"
+#   cmd_confirm
+#   cmd_log \"Goodbye, \$name!\"
 "}"
 }
 
