@@ -244,34 +244,39 @@ function test_include_with_args {
 function test_cmd_ask {
   local out
   # Empty response uses default...
-  out=$(echo | cmd --eval 'cmd_ask "Enter:" my_default' 2>/dev/null)
+  out=$(echo | cmd --eval 'cmd_ask "Name" my_default' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_default' "$out"
   # ... which defaults to empty.
-  out=$(echo | cmd --eval 'cmd_ask "Enter:"' 2>/dev/null)
+  out=$(echo | cmd --eval 'cmd_ask "Name"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals '' "$out"
   # Non-empty response is used...
-  out=$(echo 'my_val' | cmd --eval 'cmd_ask "Enter:"' 2>/dev/null)
+  out=$(echo 'my_val' | cmd --eval 'cmd_ask "Name"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
   # ... including when default is provided.
-  out=$(echo 'my_val' | cmd --eval 'cmd_ask "Enter:" my_default' 2>/dev/null)
+  out=$(echo 'my_val' | cmd --eval 'cmd_ask "Name" my_default' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
   # Idiomatic "use var if set, else prompt", where var is set.
-  out=$(my_var=hello cmd --eval 'local my_var="${my_var:-$(cmd_ask "Enter:")}"; echo "$my_var"' 2>/dev/null)
+  out=$(my_var=hello cmd --eval 'local my_var="${my_var:-$(cmd_ask "Name")}"; echo "$my_var"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'hello' "$out"
   # Idiomatic "use var if set, else prompt", where var is not set.
-  out=$(echo 'my_val' | cmd --eval 'local my_var="${my_var:-$(cmd_ask "Enter:")}"; echo "$my_var"' 2>/dev/null)
+  out=$(echo 'my_val' | cmd --eval 'local my_var="${my_var:-$(cmd_ask "Name")}"; echo "$my_var"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
   # Provided prompt (with trailing space) is passed to `read` (verified via xtrace).
-  out=$(cmd --eval 'set -x; cmd_ask "Enter:"' < /dev/null 2>&1)
+  out=$(cmd --eval 'set -x; cmd_ask "Name"' < /dev/null 2>&1)
   assertEquals 0 $?
   out=$(grep '^++ read ' <<< "$out")
-  assertEquals "++ read -erp 'Enter: ' r" "$out"
+  assertEquals "++ read -erp 'Name: ' r" "$out"
+  # Provided prompt includes default value.
+  out=$(cmd --eval 'set -x; cmd_ask "Foo" "Bar"' < /dev/null 2>&1)
+  assertEquals 0 $?
+  out=$(grep '^++ read ' <<< "$out")
+  assertEquals "++ read -erp 'Foo [Bar]: ' r" "$out"
 }
 
 function test_cmd_confirm {
@@ -284,11 +289,20 @@ function test_cmd_confirm {
   out=$(echo stop | cmd --eval 'cmd_confirm' 2>/dev/null)
   assertEquals 0 $?
   assertEquals '' "$out"
-  # Default prompt is forwarded to cmd_ask unchanged.
-  out=$(echo | cmd --eval 'cmd_ask() { >&2 echo "PROMPT:$1"; }; cmd_confirm' 2>&1)
+  # Succeeds when stdin is EOF.
+  out=$(cmd --eval 'cmd_confirm' < /dev/null 2>/dev/null)
   assertEquals 0 $?
-  out=$(grep '^PROMPT:' <<< "$out")
-  assertEquals 'PROMPT:Press ENTER to continue or ^C to cancel' "$out"
+  assertEquals '' "$out"
+  # Default prompt is passed to `read` (verified via xtrace).
+  out=$(echo | cmd --eval 'set -x; cmd_confirm' 2>&1)
+  assertEquals 0 $?
+  out=$(grep '^++ read ' <<< "$out")
+  assertEquals "++ read -p 'Press ENTER to continue or ^C to cancel...' r" "$out"
+  # Custom prompt is forwarded.
+  out=$(echo | cmd --eval 'set -x; cmd_confirm "Custom prompt"' 2>&1)
+  assertEquals 0 $?
+  out=$(grep '^++ read ' <<< "$out")
+  assertEquals "++ read -p 'Custom prompt' r" "$out"
 }
 
 function test_which {

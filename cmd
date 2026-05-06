@@ -59,21 +59,24 @@ function cmd_include {
 }
 
 function cmd_ask {
-  # args: prompt [default]
-  # Prompt the user using `$prompt` and output the response, falling back to `$default` if empty.
-  local prompt="$1"
+  # args: label [default]
+  # Prompt the user using `$label` and output the response, falling back to `$default` if empty.
+  local label="$1"
   local default="${2-}"
+  if [ "$default" ]; then
+    label="$label [$default]"
+  fi
   local r
-  read -erp "$prompt " r
+  read -erp "$label: " r
   echo "${r:-$default}"
 }
 
 function cmd_confirm {
   # args: [prompt]
   # Offer the user the chance to interrupt the script (with SIGINT).
-  # Any user intput is discarded.
-  local prompt="${1-"Press ENTER to continue or ^C to cancel"}"
-  cmd_ask "$prompt" >/dev/null
+  # Any user input is discarded.
+  local r
+  read -p "${1-"Press ENTER to continue or ^C to cancel..."}" r || true # don't fail on EOF
 }
 
 # VALIDATION #
@@ -358,12 +361,12 @@ function cmd_template {
 #   cmd_log <msg...>             - log to stderr
 #   cmd_split <delim>            - split stdin into lines by delim
 #   cmd_join <delim>             - join stdin lines by the delim
-#   cmd_ask <prompt> [default]   - prompt user; echo response, falling back to default if empty
+#   cmd_ask <label> [default]    - prompt user; echo response, falling back to default if empty
 #   cmd_confirm [prompt]         - wait for user input (discarding response)
 #   cmd_include <path> [args...] - source a .cmd file by relative command path
 #
 # Example:
-#   local name=\"\${1:-\$(cmd_ask \"Name [\$USER]:\" \"\$USER\")}\"
+#   local name=\"\${1:-\$(cmd_ask \"Name\" \"\$USER\")}\"
 #   cmd_log \"Hello, \$name!\"
 #   cmd_confirm
 #   cmd_log \"Goodbye, \$name!\"
