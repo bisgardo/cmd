@@ -309,10 +309,14 @@ function cmd_edit_or_create {
       # no matches: create
       cmd_log "$cmd_command: command \"$path_from_root\" not found"
       cmd_log "$cmd_command: select root in which to create it or ^C to cancel"
-      local PS3="Root: " root
+      local PS3='Root: ' root=
       select root in "${roots[@]}"; do
         if [ "$root" ]; then break; fi
       done
+      if [ -z "$root" ]; then
+        cmd_log "$cmd_command: no root selected"
+        return 8
+      fi
       # Could filter $run_scripts by root, but now that we have root, it's easier to just regenerate the run script.
       local run_script="$(_cmd_echo_root_run_script "$root" "$path_from_root")"
       func=__cmd_create eval "$run_script"

@@ -398,6 +398,17 @@ function test_edit_creates_in_selected_root {
   rm -rf "$root1" "$root2"
 }
 
+function test_edit_fails_when_no_root_selected {
+  local root out
+  root="$(mktemp -d)"
+  # User cancels selection with EOF (^D); EDITOR=false would fail with exit code 1 if invoked.
+  out=$(EDITOR=false CMD_ROOTS="$root" ./cmd --edit foo/bar < /dev/null 2>&1)
+  assertEquals 8 $?
+  assertContains "$out" 'no root selected'
+  assertFalse 'file should NOT be created under root' "[ -f '$root/foo/bar.cmd' ]"
+  rm -rf "$root"
+}
+
 function test_edit_refuses_when_ambiguous {
   # EDITOR=false would fail with exit code 1 if invoked, catching any regression where the guard is bypassed.
   local out
