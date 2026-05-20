@@ -111,6 +111,27 @@ function _cmd_validate_include_path {
   esac
 }
 
+function _cmd_is_direct_path {
+  # args: path
+  # Returns 0 if the path explicitly opts out of CMD_ROOTS resolution by starting with './' or '../'.
+  case "$1" in
+    ./*|../*) return 0;;
+    *) return 1;;
+  esac
+}
+
+function _cmd_validate_direct_path {
+  # args: direct_path
+  # Direct paths are passed as-is to the filesystem, so the only thing we reject is empty components ('//').
+  local direct_path="$1"
+  case "/$direct_path/" in
+    *//*)
+      cmd_log "$cmd_command: invalid command path \"$direct_path\""
+      return 7
+      ;;
+  esac
+}
+
 # RESOLVER #
 
 CMD_SUFFIX='.cmd'
@@ -164,7 +185,7 @@ function _cmd_echo_unique_run_script {
 # RUN #
 
 function cmd_eval {
-  # args: __cmd_eval_expr, [path_from_root], [cmd_args...]
+  # args: __cmd_eval_expr, [path], [cmd_args...]
   local __cmd_eval_expr="$1"
   shift
   local cmd_file=
@@ -174,6 +195,20 @@ function cmd_eval {
     # Allow passing argument to eval expr by starting with '--'.
     shift
     __cmd_eval "$@"
+  elif _cmd_is_direct_path "$1"; then
+    # Direct path: resolve relative to $cmd_dir (or current dir if unset), bypassing CMD_ROOTS.
+    local direct_path="$1"
+    shift
+    _cmd_validate_direct_path "$direct_path" || return
+    local cmd_dir_base="${cmd_dir:-.}"
+    # Strip a leading './' so the resolved path doesn't grow extra './' segments.
+    local resolved_file="$cmd_dir_base/${direct_path#./}$CMD_SUFFIX"
+    if [ ! -e "$resolved_file" ]; then
+      cmd_log "$cmd_command: command \"$direct_path\" not found"
+      return 1
+    fi
+    local run_script="cmd_root= cmd_file=$(cmd_escape "$resolved_file") \$func $(cmd_escape "$@")"
+    func=__cmd_eval eval "$run_script"
   else
     local path_from_root="$1"
     shift

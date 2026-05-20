@@ -560,20 +560,65 @@ function test_list {
   assertEquals $'# testdata/root1\nhello\nnested/hello\n# testdata/root2\necho\nwc\n# testdata/spaced root\nincluding' "$out"
 }
 
+function test_relative_path_resolves_from_cwd {
+  # Path starting with './' (or '../') is treated as a direct path relative to cwd, ignoring CMD_ROOTS.
+  # Use an unrelated CMD_ROOTS to prove resolution doesn't go through it.
+  local out
+  out=$(CMD_ROOTS=does/not/exist ./cmd ./testdata/root1/hello 2>&1)
+  assertEquals 0 $?
+  assertEquals 'Hello, world!' "$out"
+  # cmd_root is empty for direct paths; cmd_file is the resolved file (with leading './' stripped from the user path).
+  out=$(CMD_ROOTS=does/not/exist ./cmd --eval 'echo cmd_root=$cmd_root cmd_file=$cmd_file cmd_dir=$cmd_dir' ./testdata/root1/hello 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals 'cmd_root= cmd_file=./testdata/root1/hello.cmd cmd_dir=./testdata/root1' "$out"
+  # '--which' and '--cat' work for direct paths too.
+  out=$(CMD_ROOTS=does/not/exist ./cmd --which ./testdata/root1/hello 2>&1)
+  assertEquals 0 $?
+  assertEquals './testdata/root1/hello.cmd' "$out"
+  out=$(CMD_ROOTS=does/not/exist ./cmd --cat ./testdata/root1/nested/hello 2>&1)
+  assertEquals 0 $?
+  assertEquals "echo 'Hello, nested world!'" "$out"
+  # '../' is allowed.
+  out=$(cd testdata && CMD_ROOTS=does/not/exist ../cmd ../testdata/root1/hello 2>&1)
+  assertEquals 0 $?
+  assertEquals 'Hello, world!' "$out"
+}
+
+function test_relative_path_not_found {
+  local out
+  out=$(cmd ./nonexistent 2>&1)
+  assertEquals 1 $?
+  assertEquals 'cmd: command "./nonexistent" not found' "$out"
+}
+
+function test_relative_path_from_cmd_file_resolves_against_cmd_dir {
+  # When 'cmd_run' (or any cmd_eval-based call) is invoked from inside a .cmd file with a relative path,
+  # the path is resolved against $cmd_dir, not the original cwd.
+  local root out
+  root="$(mktemp -d)"
+  echo 'echo "outer cmd_dir=$cmd_dir"; cmd_run ./inner' > "$root/outer.cmd"
+  echo 'echo "inner cmd_file=$cmd_file"' > "$root/inner.cmd"
+  out=$(CMD_ROOTS="$root" ./cmd outer 2>/dev/null)
+  assertEquals 0 $?
+  assertEquals $"outer cmd_dir=$root"$'\n'"inner cmd_file=$root/inner.cmd" "$out"
+  rm -rf "$root"
+}
+
+function test_relative_path_rejects_empty_components {
+  local out
+  out=$(cmd .//hello 2>&1)
+  assertEquals 7 $?
+  assertEquals 'cmd: invalid command path ".//hello"' "$out"
+}
+
 function test_invalid_paths_rejected {
   # While the command path is mapped to the filesystem, it should be understood conceptually as the path of the command
   # in the tree of all available commands (which is also what 'cmd --list' shows).
   # To enforce this abstraction, we only allow "simple" paths, that is, strictly descending relative paths.
   # Note that this isn't a security measure - it's entirely about leaky abstractions.
   local out
-  # Path that could escape root.
-  out=$(CMD_ROOTS=testdata/root1 ./cmd ../root2/echo 2>&1)
-  assertEquals 7 $?
-  assertEquals 'cmd: invalid command path "../root2/echo"' "$out"
   # Paths that use '.', '..', or empty components.
-  out=$(cmd ./hello 2>&1)
-  assertEquals 7 $?
-  assertEquals 'cmd: invalid command path "./hello"' "$out"
+  # ('./X' and '../X' are accepted as direct paths — see test_relative_path_*.)
   out=$(cmd /hello 2>&1)
   assertEquals 7 $?
   assertEquals 'cmd: invalid command path "/hello"' "$out"

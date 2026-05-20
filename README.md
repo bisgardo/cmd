@@ -30,6 +30,14 @@ will then attempt to locate and run `path/from/root.cmd args...`, relative to so
 
 The matched `.cmd` file must be unique; an error listing all matches will be reported otherwise.
 
+### Relative paths
+
+A path that starts with `./` or `../` opts out of `CMD_ROOTS` resolution and is resolved directly against the filesystem.
+From the command line, the base directory is the current working directory; from inside a `.cmd` file (i.e. when called via `cmd_run`), it is the directory of that file (`$cmd_dir`).
+
+For example, from a `.cmd` file, `cmd_run ./sibling` runs `$cmd_dir/sibling.cmd` regardless of `CMD_ROOTS`.
+This overlaps with `cmd_include`, but is not a full replacement: `cmd_include` sources the target in the caller's function scope, while `cmd_run` evaluates it in its own.
+
 ## Install
 
 Clone the repository
