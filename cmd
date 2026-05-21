@@ -62,49 +62,24 @@ function cmd_ask {
   # args: label [default]
   # Prompt the user using `$label` and output the response, pre-filling input with `$default`.
   local label="$1"
-  local r="${2-}"
-  local c
-  if [ -t 0 ]; then
-    printf '%s: %s' "$label" "$r" >&2
+  local default="${2-}"
+  local r
+  if [ "$default" ] && [ -t 0 ]; then
+    local macro="${default//\\/\\\\}"
+    macro="${macro//\"/\\\"}"
+    # Bash 3 lacks `read -i`. Bind the terminal status response to a Readline macro that inserts the default.
+    set -o emacs
+    bind $'"\e[0n": "'"$macro"$'"'
+    printf '\033[5n' > /dev/tty 2>/dev/null || true
+    read -erp "$label: " r || true
+    bind -r $'\e[0n'
+  else
+    if [ "$default" ]; then
+      label="$label [$default]"
+    fi
+    read -erp "$label: " r || true
   fi
-  while IFS= read -rsn1 c; do
-    case "$c" in
-      '')
-        break
-        ;;
-      $'\r')
-        break
-        ;;
-      $'\177'|$'\b')
-        if [ "$r" ]; then
-          r="${r%?}"
-          if [ -t 0 ]; then
-            printf '\b \b' >&2
-          fi
-        fi
-        ;;
-      $'\025')
-        if [ -t 0 ]; then
-          while [ "$r" ]; do
-            r="${r%?}"
-            printf '\b \b' >&2
-          done
-        else
-          r=''
-        fi
-        ;;
-      *)
-        r="$r$c"
-        if [ -t 0 ]; then
-          printf '%s' "$c" >&2
-        fi
-        ;;
-    esac
-  done
-  if [ -t 0 ]; then
-    printf '\n' >&2
-  fi
-  echo "$r"
+  echo "${r:-$default}"
 }
 
 function cmd_confirm {
