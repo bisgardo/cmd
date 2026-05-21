@@ -255,8 +255,8 @@ function test_cmd_ask {
   out=$(echo 'my_val' | cmd --eval 'cmd_ask "Name"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
-  # ... including when default is provided.
-  out=$(echo 'my_val' | cmd --eval 'cmd_ask "Name" my_default' 2>/dev/null)
+  # ... including when default is provided and the default input is cleared first.
+  out=$(printf '\025my_val\n' | cmd --eval 'cmd_ask "Name" my_default' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
   # Idiomatic "use var if set, else prompt", where var is set.
@@ -267,16 +267,14 @@ function test_cmd_ask {
   out=$(echo 'my_val' | cmd --eval 'local my_var="${my_var:-$(cmd_ask "Name")}"; echo "$my_var"' 2>/dev/null)
   assertEquals 0 $?
   assertEquals 'my_val' "$out"
-  # Provided prompt (with trailing space) is passed to `read` (verified via xtrace).
-  out=$(cmd --eval 'set -x; cmd_ask "Name"' < /dev/null 2>&1)
+  # Input appends to the pre-filled default.
+  out=$(printf '_suffix\n' | cmd --eval 'cmd_ask "Name" my_default' 2>/dev/null)
   assertEquals 0 $?
-  out=$(grep '^++ read ' <<< "$out")
-  assertEquals "++ read -erp 'Name: ' r" "$out"
-  # Provided prompt includes default value.
-  out=$(cmd --eval 'set -x; cmd_ask "Foo" "Bar"' < /dev/null 2>&1)
+  assertEquals 'my_default_suffix' "$out"
+  # Backspace edits the pre-filled default.
+  out=$(printf '\177\n' | cmd --eval 'cmd_ask "Name" my_default' 2>/dev/null)
   assertEquals 0 $?
-  out=$(grep '^++ read ' <<< "$out")
-  assertEquals "++ read -erp 'Foo [Bar]: ' r" "$out"
+  assertEquals 'my_defaul' "$out"
 }
 
 function test_cmd_confirm {
@@ -465,7 +463,7 @@ function test_mv_same_root_different_name {
   mkdir -p "$root/foo"
   echo 'my-script' > "$root/foo/bar.cmd"
   # Select only root (1), new name "foo/baz".
-  out=$(printf '1\nfoo/baz\n' | CMD_ROOTS="$root" ./cmd --mv foo/bar 2>&1)
+  out=$(printf '1\n\025foo/baz\n' | CMD_ROOTS="$root" ./cmd --mv foo/bar 2>&1)
   assertEquals 0 $?
   assertFalse 'old file should not exist' "[ -e '$root/foo/bar.cmd' ]"
   assertTrue 'new file should exist' "[ -f '$root/foo/baz.cmd' ]"
@@ -501,7 +499,7 @@ function test_mv_to_existing_path_in_same_root_fails {
   mkdir -p "$root/foo"
   echo 'src' > "$root/foo/bar.cmd"
   echo 'dst' > "$root/foo/baz.cmd"
-  out=$(printf '1\nfoo/baz\n' | CMD_ROOTS="$root" ./cmd --mv foo/bar 2>&1)
+  out=$(printf '1\n\025foo/baz\n' | CMD_ROOTS="$root" ./cmd --mv foo/bar 2>&1)
   assertEquals 4 $?
   assertContains "$out" 'already exists'
   # Source and destination left untouched.
@@ -517,7 +515,7 @@ function test_mv_to_existing_path_in_different_root_fails {
   mkdir -p "$root1/foo" "$root2/foo"
   echo 'src' > "$root1/foo/bar.cmd"
   echo 'dst' > "$root2/foo/baz.cmd"
-  out=$(printf '2\nfoo/baz\n' | CMD_ROOTS="$root1:$root2" ./cmd --mv foo/bar 2>&1)
+  out=$(printf '2\n\025foo/baz\n' | CMD_ROOTS="$root1:$root2" ./cmd --mv foo/bar 2>&1)
   assertEquals 4 $?
   assertContains "$out" 'already exists'
   # Source and destination left untouched.

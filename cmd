@@ -60,15 +60,51 @@ function cmd_include {
 
 function cmd_ask {
   # args: label [default]
-  # Prompt the user using `$label` and output the response, falling back to `$default` if empty.
+  # Prompt the user using `$label` and output the response, pre-filling input with `$default`.
   local label="$1"
-  local default="${2-}"
-  if [ "$default" ]; then
-    label="$label [$default]"
+  local r="${2-}"
+  local c
+  if [ -t 0 ]; then
+    printf '%s: %s' "$label" "$r" >&2
   fi
-  local r
-  read -erp "$label: " r
-  echo "${r:-$default}"
+  while IFS= read -rsn1 c; do
+    case "$c" in
+      '')
+        break
+        ;;
+      $'\r')
+        break
+        ;;
+      $'\177'|$'\b')
+        if [ "$r" ]; then
+          r="${r%?}"
+          if [ -t 0 ]; then
+            printf '\b \b' >&2
+          fi
+        fi
+        ;;
+      $'\025')
+        if [ -t 0 ]; then
+          while [ "$r" ]; do
+            r="${r%?}"
+            printf '\b \b' >&2
+          done
+        else
+          r=''
+        fi
+        ;;
+      *)
+        r="$r$c"
+        if [ -t 0 ]; then
+          printf '%s' "$c" >&2
+        fi
+        ;;
+    esac
+  done
+  if [ -t 0 ]; then
+    printf '\n' >&2
+  fi
+  echo "$r"
 }
 
 function cmd_confirm {
@@ -414,7 +450,7 @@ function cmd_template {
 #   cmd_log <msg...>             - log to stderr
 #   cmd_split <delim>            - split stdin into lines by delim
 #   cmd_join <delim>             - join stdin lines by the delim
-#   cmd_ask <label> [default]    - prompt user; echo response, falling back to default if empty
+#   cmd_ask <label> [default]    - prompt user; echo response, pre-filling input with default
 #   cmd_confirm [prompt]         - wait for user input (discarding response)
 #   cmd_include <path> [args...] - source a .cmd file by relative command path
 #
