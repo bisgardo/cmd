@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eo pipefail
+set -eEo pipefail # -E (errtrace) lets the ERR trap in __cmd_eval reach functions and sourced scripts
 
 CMD_ROOTS="${CMD_ROOTS-.}" # must have at most 255 elements
 cmd_command="$(basename $0)"
@@ -67,7 +67,7 @@ function cmd_ask {
     label="$label [$default]"
   fi
   local r
-  read -erp "$label: " r
+  read -erp "$label: " r || true # don't fail (errexit) on EOF; fall back to default below
   echo "${r:-$default}"
 }
 
@@ -128,6 +128,10 @@ function _cmd_filter_run_scripts_by_existence {
   # input: sequence of run scripts
   # output: run scripts corresponding to files that exist (one per line)
   # Returns number of output lines - not error code! - silently assuming that to be at most 255.
+  # This always runs in a command substitution, so disarm any ERR trap inherited via errtrace (-E)
+  # locally to this subshell: the non-zero "count" we return is data, and Bash 3 (which inherits
+  # errexit into substitutions) would otherwise fire the trap on it and clobber the count.
+  trap - ERR
   local run_script f res=0
   while read -r run_script; do
     f="$(func='__cmd_echo_var cmd_file' eval "$run_script")"
@@ -199,14 +203,24 @@ function __cmd_eval {
   # args: cmd_args...
   # scope: __cmd_eval_expr, cmd_root, cmd_file, ...
   local cmd_dir="$(dirname "$cmd_file")" # provides cmd_dir to __cmd_eval_expr
-  # Wrapping 'eval' in __cmd_eval_wrap to let 'return' stmts in $__cmd_eval_expr make that func return instead of this one.
-  # Note that `||` disables errexit (-e) within the evaluated expression.
-  local cmd_exit_code=0
-  __cmd_eval_wrap "$@" || cmd_exit_code=$?
-  if [ "$cmd_exit_code" -ne 0 ]; then
-    cmd_log "$cmd_command: eval of expression \`$__cmd_eval_expr\` failed with exit code $cmd_exit_code"
-    return 4
-  fi
+  # The expression runs with errexit (-e) active so scripts abort on the first failing command.
+  # We can't capture its status with `||` (or `if`, etc.) to report it, as that would disable errexit
+  # for the whole expression - the very quirk that made scripts plow ahead before. Instead, an ERR trap
+  # (reaching into __cmd_eval_wrap and any sourced script via errtrace, -E) reports the failure and the
+  # original exit code; errexit then terminates cmd. The trap is intentionally left in place: it stays
+  # correct for any nested cmd invocation and there's no non-expression code left to misfire on.
+  # Wrapping 'eval' in __cmd_eval_wrap lets 'return' stmts in $__cmd_eval_expr make that func return
+  # (tripping the trap) instead of this one; a hard 'exit' still bypasses the trap and kills the process.
+  trap '__cmd_eval_err $?' ERR
+  __cmd_eval_wrap "$@"
+}
+
+function __cmd_eval_err {
+  # caller: __cmd_eval (via ERR trap)
+  # args: exit_code
+  # scope: __cmd_eval_expr, ...
+  cmd_log "$cmd_command: eval of expression \`$__cmd_eval_expr\` failed with exit code $1"
+  exit 4
 }
 
 function __cmd_eval_wrap {
@@ -281,8 +295,9 @@ function __cmd_shell {
         continue
       fi
     fi
-    # Although `set -e` is set globally, eval failures don't crash the script here for reasons explained in __cmd_eval.
-    eval "$expr"
+    # Keep the interactive shell alive across failures: '|| true' puts the eval in a context where
+    # errexit (and thus the ERR trap from __cmd_eval) is ignored, so a failing command doesn't crash it.
+    eval "$expr" || true
   done
 }
 

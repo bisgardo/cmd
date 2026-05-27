@@ -40,6 +40,30 @@ function test_can_run_echo {
   assertEquals 'hello echo' "$out"
 }
 
+function test_script_runs_with_errexit {
+  # Issue #16: scripts run with errexit (set -e), so a failing command aborts the script
+  # instead of plowing ahead; later commands don't run.
+  local out
+  out=$(CMD_ROOTS=./testdata/test_errexit ./cmd fail 2>&1)
+  assertEquals 4 $?
+  assertContains "$out" 'before'
+  assertNotContains "$out" 'after'
+  assertContains "$out" 'failed with exit code 1'
+  # Opt out of aborting (per issue) by appending '|| true' to the command that may fail.
+  out=$(CMD_ROOTS=./testdata/test_errexit ./cmd continue 2>&1)
+  assertEquals 0 $?
+  assertEquals $'before\nafter' "$out"
+}
+
+function test_eval_runs_with_errexit {
+  # Same as above, but for a multi-statement '--eval' expression.
+  # Check stdout in isolation: 'echo after' never runs, so only 'before' is emitted.
+  local out
+  out=$(cmd --eval 'echo before; false; echo after' 2>/dev/null)
+  assertEquals 4 $?
+  assertEquals 'before' "$out"
+}
+
 function test_cannot_run_nonexistent {
   local out
   out=$(cmd nonexistent 2>&1)
@@ -99,12 +123,14 @@ function test_eval_logged_escapes_msg {
 }
 
 function test_eval_quoted_unmatched {
+  # A *syntax* error in the expression can't be caught by the ERR trap (Bash aborts the eval before
+  # any command runs), so it surfaces Bash's own parse error and exit code rather than the custom
+  # 'eval of expression failed' wrapper used for runtime failures.
   local out
   out=$(cmd --eval ec\'ho hello 2>&1)
-  assertEquals 4 $?
+  assertEquals 2 $?
   assertContains "$out" "unexpected EOF while looking for matching \`'"
-  assertContains "$out" 'eval of expression'
-  assertContains "$out" 'failed with exit code' # code 1 in Bash 3 and 4, code 2 in Bash 5
+  assertNotContains "$out" 'eval of expression'
 }
 
 function test_eval_return_vs_exit {
@@ -146,18 +172,6 @@ function test_eval_without_command {
   out=$(cmd --eval 'echo "$@"' -- x y z 2>&1)
   assertEquals 0 $?
   assertEquals $'> echo "$@"\nx y z' "$out"
-}
-
-function test_eval_can_assign_exit_code {
-  local out
-  out=$(cmd --eval 'cmd_exit_code=42' 2>&1)
-  assertEquals 4 $?
-  assertContains "$out" 'cmd: eval of expression'
-  assertContains "$out" 'failed with exit code 42'
-  out=$(cmd --eval 'cmd_exit_code=42; return 69' 2>&1)
-  assertEquals 4 $?
-  assertContains "$out" 'eval of expression'
-  assertContains "$out" 'failed with exit code 69'
 }
 
 function test_eval_can_access_own_expression {
